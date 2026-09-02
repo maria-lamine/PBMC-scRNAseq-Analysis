@@ -7,3 +7,6 @@ results/
 *_cache/
 *_files/
 index.html
+
+/.quarto/
+**/*.quarto_ipynb

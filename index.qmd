@@ -1,0 +1,125 @@
+---
+title: "Cell Types Beyond Lymphocytes: Multi-Sample scRNA-seq Analysis of Human PBMCs"
+author: "Maria and Eylul"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    number-sections: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(viridis)
+
+# Load datasets and assign metadata
+load_donor <- function(file_path, donor_id, sex, age_group) {
+  counts <- Read10X_h5(file_path)
+  obj <- CreateSeuratObject(counts = counts, project = donor_id, min.cells = 3, min.features = 200)
+  obj$donor <- donor_id
+  obj$sex <- sex
+  obj$age_group <- age_group
+  obj[["percent.mt"]] <- PercentageFeatureSet(obj, pattern = "^MT-")
+  return(obj)
+}
+
+d1 <- load_donor("data/donor1.h5", "Donor1", "Male", "18-35")
+d2 <- load_donor("data/donor2.h5", "Donor2", "Male", "18-35")
+d3 <- load_donor("data/donor3.h5", "Donor3", "Female", "36-50")
+d4 <- load_donor("data/donor4.h5", "Donor4", "Female", "36-50")
+
+pbmc <- merge(d1, y = c(d2, d3, d4), add.cell.ids = c("D1", "D2", "D3", "D4"))
+
+# QC Filtering
+pbmc <- subset(pbmc, subset = nFeature_RNA > 500 & nFeature_RNA < 4500 & percent.mt < 15)
+
+# Normalization & Dimensionality Reduction
+pbmc <- NormalizeData(pbmc)
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+pbmc <- ScaleData(pbmc)
+pbmc <- RunPCA(pbmc, npcs = 30)
+pbmc <- RunUMAP(pbmc, dims = 1:20)
+pbmc <- FindNeighbors(pbmc, dims = 1:20)
+pbmc <- FindClusters(pbmc, resolution = 0.4)
+
+# Cell Type Annotation
+cluster_ids <- c(
+  "0" = "CD4 T Cells", "1" = "CD14+ Monocytes", "2" = "CD8 T Cells",
+  "3" = "NK Cells", "4" = "B Cells", "5" = "CD14+ Monocytes",
+  "6" = "FCGR3A+ Monocytes", "7" = "Dendritic Cells", "8" = "Platelets"
+)
+pbmc <- RenameIdents(pbmc, cluster_ids)
+pbmc$cell_type <- Idents(pbmc)
+```
+
+# Quality Control
+
+```{r qc-plot, fig.cap="Mitochondrial and gene count metrics per donor prior to cell filtering."}
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = "donor", ncol = 3)
+```
+
+```{r cluster-renaming}
+# Rename unannotated clusters
+pbmc_clean <- RenameIdents(pbmc,
+  '9'  = "Plasmablasts",
+  '11' = "gamma-delta T cells",
+  '10' = "Doublets/Artifacts",
+  '12' = "Doublets/Artifacts",
+  '13' = "Platelet-T Doublets",
+  '14' = "Platelet-T Doublets"
+)
+
+# Filter out identified doublets/artifacts
+pbmc_clean <- subset(pbmc_clean, idents = c("Doublets/Artifacts", "Platelet-T Doublets"), invert = TRUE)
+```
+
+```{r umap-plot, fig.cap="UMAP projection of annotated PBMC populations."}
+DimPlot(pbmc_clean, reduction = "umap", label = TRUE, repel = TRUE) + 
+  scale_color_viridis_d(option = "turbo")
+```
+
+# Downstream Analysis & Validation
+
+```{r downstream-analysis, fig.width=10, fig.height=6}
+# 1. Plot cell type proportions across donors
+p1 <- ggplot(pbmc_clean@meta.data, aes(x = orig.ident, fill = Idents(pbmc_clean))) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion", x = "Donor", fill = "Cell Type", title = "Cell Composition") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 2. DotPlot of canonical markers across cell types
+canonical_markers <- c("CD3D", "CD4", "CD8A", "TRDC", "NCAM1", "CD14", "FCGR3A", "MS4A1", "MZB1", "LYZ")
+p2 <- DotPlot(pbmc_clean, features = canonical_markers) + 
+  RotatedAxis() + 
+  labs(title = "Lineage Marker Expression")
+
+# Display plots side-by-side
+p1 + p2
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
