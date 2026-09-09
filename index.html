@@ -98,7 +98,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#analysis-observations-figure-3" id="toc-analysis-observations-figure-3" class="nav-link" data-scroll-target="#analysis-observations-figure-3"><span class="header-section-number">4.1</span> Analysis &amp; Observations: Figure 3</a></li>
   </ul></li>
-  <li><a href="#exploratory-pseudobulk-analysis-group-associated-differences" id="toc-exploratory-pseudobulk-analysis-group-associated-differences" class="nav-link" data-scroll-target="#exploratory-pseudobulk-analysis-group-associated-differences"><span class="header-section-number">5</span> Exploratory Pseudobulk Analysis (Group-Associated Differences)</a></li>
+  <li><a href="#exploratory-pseudobulk-analysis-group-associated-differences" id="toc-exploratory-pseudobulk-analysis-group-associated-differences" class="nav-link" data-scroll-target="#exploratory-pseudobulk-analysis-group-associated-differences"><span class="header-section-number">5</span> 5 Exploratory Pseudobulk Analysis (Group-Associated Differences)</a></li>
   </ul>
 </nav>
 </div>
@@ -288,7 +288,6 @@ Elapsed time: 2 seconds</code></pre>
 <li><strong>Lineage Clustering:</strong> T lymphocytes (CD4+ and CD8+) and NK cells form a large continuous super-cluster on the lower axis. Myeloid lineages (CD14+ and FCGR3A+ Monocytes) form a distinct branch on the left, while B cells, Plasmacytoid DCs, and Platelets occupy isolated outer islands.</li>
 <li><strong>Quality Control:</strong> Cluster 14 represents residual low-quality cells or doublets, isolated near the center-right margin.</li>
 </ul>
-<hr>
 </section>
 </section>
 <section id="donor-cell-composition" class="level2" data-number="3">
@@ -319,7 +318,6 @@ Elapsed time: 2 seconds</code></pre>
 <li><strong>Proportional Breakdown:</strong> T cells and CD14+ Monocytes consistently dominate PBMC composition (&gt;70% of total cells across all samples).</li>
 <li><strong>Donor Variance:</strong> Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.</li>
 </ul>
-<hr>
 </section>
 </section>
 <section id="lineage-marker-gene-validation" class="level2" data-number="4">
@@ -356,49 +354,78 @@ Elapsed time: 2 seconds</code></pre>
 <li><em>MS4A1</em> (CD20) and <em>MZB1</em> mark B cells and antibody-secreting Plasma cells, respectively.</li>
 </ul></li>
 </ul>
-<hr>
 </section>
 </section>
 <section id="exploratory-pseudobulk-analysis-group-associated-differences" class="level2" data-number="5">
-<h2 data-number="5" class="anchored" data-anchor-id="exploratory-pseudobulk-analysis-group-associated-differences"><span class="header-section-number">5</span> Exploratory Pseudobulk Analysis (Group-Associated Differences)</h2>
+<h2 data-number="5" class="anchored" data-anchor-id="exploratory-pseudobulk-analysis-group-associated-differences"><span class="header-section-number">5</span> 5 Exploratory Pseudobulk Analysis (Group-Associated Differences)</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Aggregate raw counts to donor-celltype pseudobulk level (N=2 per group)</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>donor_celltype <span class="ot">&lt;-</span> <span class="fu">paste</span>(pbmc_clean<span class="sc">$</span>donor_id, pbmc_clean<span class="sc">$</span>cell_type, <span class="at">sep =</span> <span class="st">"_"</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Aggregate raw counts to donor-celltype pseudobulk level</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>donor_celltype <span class="ot">&lt;-</span> <span class="fu">paste</span>(pbmc_clean<span class="sc">$</span>donor_id, pbmc_clean<span class="sc">$</span>cell_type, <span class="at">sep =</span> <span class="st">"___"</span>)</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>pb_counts <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(pbmc_clean, <span class="at">group.by =</span> <span class="st">"donor_celltype"</span>, <span class="at">slot =</span> <span class="st">"counts"</span>)<span class="sc">$</span>RNA</span>
 <span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Canonical sex-chromosome genes</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Exclude canonical sex-chromosome genes</span></span>
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>sex_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"XIST"</span>, <span class="st">"TSIX"</span>, <span class="st">"RPS4Y1"</span>, <span class="st">"DDX3Y"</span>, <span class="st">"KDM5D"</span>, <span class="st">"UTY"</span>, <span class="st">"EIF1AY"</span>, <span class="st">"USP9Y"</span>)</span>
 <span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>cell_types <span class="ot">&lt;-</span> <span class="fu">unique</span>(pbmc_clean<span class="sc">$</span>cell_type)</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>pseudobulk_results <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (ct <span class="cf">in</span> cell_types) {</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Match column names using safe string matching</span></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  ct_cols <span class="ot">&lt;-</span> <span class="fu">colnames</span>(pb_counts)[<span class="fu">endsWith</span>(<span class="fu">colnames</span>(pb_counts), <span class="fu">paste0</span>(<span class="st">"_"</span>, ct))]</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(ct_cols) <span class="sc">==</span> <span class="dv">4</span>) {</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    sub_mat <span class="ot">&lt;-</span> pb_counts[, ct_cols]</span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    males <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor1|Donor2"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    females <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor3|Donor4"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate log2 fold-change (Male/Young vs Female/Old)</span></span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    log2fc_all <span class="ot">&lt;-</span> <span class="fu">log2</span>(<span class="fu">rowMeans</span>(sub_mat[, males, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="fu">rowMeans</span>(sub_mat[, females, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>))</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Isolate autosomal gene signal</span></span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    autosomal_genes <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">rownames</span>(sub_mat), sex_genes)</span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    log2fc_autosomal <span class="ot">&lt;-</span> log2fc_all[autosomal_genes]</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    pseudobulk_results[[<span class="fu">as.character</span>(ct)]] <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>),</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>)</span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Analyze major immune populations safely</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>target_cells <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD14+ Monocytes"</span>, <span class="st">"CD4+ T cells"</span>, <span class="st">"CD8+ T cells"</span>, <span class="st">"B cells"</span>)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>df_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (ct <span class="cf">in</span> target_cells) {</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Sanitize name to match Seurat's column formatting</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  ct_sanitized <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"[ +]"</span>, <span class="st">"."</span>, ct)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  cols <span class="ot">&lt;-</span> <span class="fu">colnames</span>(pb_counts)[<span class="fu">grepl</span>(ct_sanitized, <span class="fu">colnames</span>(pb_counts))]</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(cols) <span class="sc">&gt;=</span> <span class="dv">2</span>) {</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    sub_mat <span class="ot">&lt;-</span> pb_counts[, cols, drop <span class="ot">=</span> <span class="cn">FALSE</span>]</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    males <span class="ot">&lt;-</span> cols[<span class="fu">grepl</span>(<span class="st">"Donor1|Donor2"</span>, cols)]</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    females <span class="ot">&lt;-</span> cols[<span class="fu">grepl</span>(<span class="st">"Donor3|Donor4"</span>, cols)]</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">length</span>(males) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> <span class="fu">length</span>(females) <span class="sc">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>      log2fc_all <span class="ot">&lt;-</span> <span class="fu">log2</span>(<span class="fu">rowMeans</span>(sub_mat[, males, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="fu">rowMeans</span>(sub_mat[, females, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>))</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>      autosomal_genes <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">names</span>(log2fc_all), sex_genes)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>      log2fc_auto <span class="ot">&lt;-</span> log2fc_all[autosomal_genes]</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>      top_genes <span class="ot">&lt;-</span> <span class="fu">head</span>(<span class="fu">sort</span>(<span class="fu">abs</span>(log2fc_auto), <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>)</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>      df_list[[ct]] <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>        <span class="at">CellType =</span> ct,</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>        <span class="at">Gene =</span> <span class="fu">names</span>(top_genes),</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>        <span class="at">Log2FC =</span> log2fc_auto[<span class="fu">names</span>(top_genes)],</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>        <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>results_df <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, df_list)</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Render visual comparison chart</span></span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(results_df, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">reorder</span>(Gene, Log2FC), <span class="at">y =</span> Log2FC, <span class="at">fill =</span> Log2FC <span class="sc">&gt;</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>CellType, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(</span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"TRUE"</span> <span class="ot">=</span> <span class="st">"#2b5c8f"</span>, <span class="st">"FALSE"</span> <span class="ot">=</span> <span class="st">"#d95f02"</span>), </span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Higher in Females/Older"</span>, <span class="st">"Higher in Males/Younger"</span>)</span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Top Autosomal Gene Expression Shifts (Pseudobulk)"</span>,</span>
+<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Gene"</span>, </span>
+<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Log2 Fold Change (Male/Young vs Female/Old)"</span>,</span>
+<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Direction"</span></span>
+<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/pseudobulk-exploratory-analysis-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>Figure 4: Top autosomal gene expression differences between donor groups across major cell populations.</figcaption>
+</figure>
+</div>
+</div>
 </div>
 <!-- -->
 
@@ -983,86 +1010,124 @@ Elapsed time: 2 seconds</code></pre>
 <span id="cb13-124"><a href="#cb13-124" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Lineage Clustering:** T lymphocytes (CD4+ and CD8+) and NK cells form a large continuous super-cluster on the lower axis. Myeloid lineages (CD14+ and FCGR3A+ Monocytes) form a distinct branch on the left, while B cells, Plasmacytoid DCs, and Platelets occupy isolated outer islands.</span>
 <span id="cb13-125"><a href="#cb13-125" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Quality Control:** Cluster 14 represents residual low-quality cells or doublets, isolated near the center-right margin.</span>
 <span id="cb13-126"><a href="#cb13-126" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-127"><a href="#cb13-127" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb13-128"><a href="#cb13-128" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-129"><a href="#cb13-129" aria-hidden="true" tabindex="-1"></a><span class="fu">## Donor Cell Composition</span></span>
-<span id="cb13-130"><a href="#cb13-130" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-131"><a href="#cb13-131" aria-hidden="true" tabindex="-1"></a><span class="in">```{r composition-plot, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 2: Relative proportion of each cell population across individual donors."}</span></span>
-<span id="cb13-132"><a href="#cb13-132" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(pbmc_clean<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> orig.ident, <span class="at">fill =</span> cell_type)) <span class="sc">+</span></span>
-<span id="cb13-133"><a href="#cb13-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"fill"</span>, <span class="at">width =</span> <span class="fl">0.65</span>) <span class="sc">+</span></span>
-<span id="cb13-134"><a href="#cb13-134" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>) <span class="sc">+</span></span>
-<span id="cb13-135"><a href="#cb13-135" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb13-136"><a href="#cb13-136" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Donor ID"</span>, <span class="at">fill =</span> <span class="st">"Cell Population"</span>, <span class="at">title =</span> <span class="st">"Immune Cell Type Composition Across Donors"</span>) <span class="sc">+</span></span>
-<span id="cb13-137"><a href="#cb13-137" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">0</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
-<span id="cb13-138"><a href="#cb13-138" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"right"</span>)</span>
-<span id="cb13-139"><a href="#cb13-139" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-140"><a href="#cb13-140" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-141"><a href="#cb13-141" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 2</span></span>
-<span id="cb13-142"><a href="#cb13-142" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Proportional Breakdown:** T cells and CD14+ Monocytes consistently dominate PBMC composition (&gt;70% of total cells across all samples).</span>
-<span id="cb13-143"><a href="#cb13-143" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Donor Variance:** Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.</span>
+<span id="cb13-127"><a href="#cb13-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-128"><a href="#cb13-128" aria-hidden="true" tabindex="-1"></a><span class="fu">## Donor Cell Composition</span></span>
+<span id="cb13-129"><a href="#cb13-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-130"><a href="#cb13-130" aria-hidden="true" tabindex="-1"></a><span class="in">```{r composition-plot, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 2: Relative proportion of each cell population across individual donors."}</span></span>
+<span id="cb13-131"><a href="#cb13-131" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(pbmc_clean<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> orig.ident, <span class="at">fill =</span> cell_type)) <span class="sc">+</span></span>
+<span id="cb13-132"><a href="#cb13-132" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"fill"</span>, <span class="at">width =</span> <span class="fl">0.65</span>) <span class="sc">+</span></span>
+<span id="cb13-133"><a href="#cb13-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>) <span class="sc">+</span></span>
+<span id="cb13-134"><a href="#cb13-134" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-135"><a href="#cb13-135" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Donor ID"</span>, <span class="at">fill =</span> <span class="st">"Cell Population"</span>, <span class="at">title =</span> <span class="st">"Immune Cell Type Composition Across Donors"</span>) <span class="sc">+</span></span>
+<span id="cb13-136"><a href="#cb13-136" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">0</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb13-137"><a href="#cb13-137" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"right"</span>)</span>
+<span id="cb13-138"><a href="#cb13-138" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-139"><a href="#cb13-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-140"><a href="#cb13-140" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 2</span></span>
+<span id="cb13-141"><a href="#cb13-141" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Proportional Breakdown:** T cells and CD14+ Monocytes consistently dominate PBMC composition (&gt;70% of total cells across all samples).</span>
+<span id="cb13-142"><a href="#cb13-142" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Donor Variance:** Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.</span>
+<span id="cb13-143"><a href="#cb13-143" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-144"><a href="#cb13-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-145"><a href="#cb13-145" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb13-145"><a href="#cb13-145" aria-hidden="true" tabindex="-1"></a><span class="fu">## Lineage Marker Gene Validation</span></span>
 <span id="cb13-146"><a href="#cb13-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-147"><a href="#cb13-147" aria-hidden="true" tabindex="-1"></a><span class="fu">## Lineage Marker Gene Validation</span></span>
-<span id="cb13-148"><a href="#cb13-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-149"><a href="#cb13-149" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marker-expression-plot, fig.width=11, fig.height=7, out.width="100%", fig.cap="Figure 3: Canonical marker gene expression profile across annotated populations."}</span></span>
-<span id="cb13-150"><a href="#cb13-150" aria-hidden="true" tabindex="-1"></a>canonical_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD4"</span>, <span class="st">"CD8A"</span>, <span class="st">"TRDC"</span>, <span class="st">"NCAM1"</span>, <span class="st">"CD14"</span>, <span class="st">"FCGR3A"</span>, <span class="st">"MS4A1"</span>, <span class="st">"MZB1"</span>, <span class="st">"LYZ"</span>)</span>
-<span id="cb13-151"><a href="#cb13-151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-152"><a href="#cb13-152" aria-hidden="true" tabindex="-1"></a><span class="fu">DotPlot</span>(pbmc_clean, <span class="at">features =</span> canonical_markers) <span class="sc">+</span></span>
-<span id="cb13-153"><a href="#cb13-153" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span></span>
-<span id="cb13-154"><a href="#cb13-154" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_c</span>(<span class="at">option =</span> <span class="st">"magma"</span>) <span class="sc">+</span></span>
-<span id="cb13-155"><a href="#cb13-155" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Canonical Lineage Marker Expression"</span>, <span class="at">x =</span> <span class="st">"Marker Gene"</span>, <span class="at">y =</span> <span class="st">"Annotated Cell Type"</span>) <span class="sc">+</span></span>
-<span id="cb13-156"><a href="#cb13-156" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb13-157"><a href="#cb13-157" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">face =</span> <span class="st">"bold"</span>))</span>
-<span id="cb13-158"><a href="#cb13-158" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb13-159"><a href="#cb13-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-160"><a href="#cb13-160" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 3</span></span>
-<span id="cb13-161"><a href="#cb13-161" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Marker Fidelity:** Specific marker genes confirm accurate cluster identities:</span>
-<span id="cb13-162"><a href="#cb13-162" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*CD3D*, *CD4*, and *CD8A* uniquely distinguish T lymphocyte subpopulations.</span>
-<span id="cb13-163"><a href="#cb13-163" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*NCAM1* (CD56) highlights cytotoxic NK cell lineages.</span>
-<span id="cb13-164"><a href="#cb13-164" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*CD14*, *FCGR3A*, and *LYZ* explicitly delineate classical and non-classical Monocyte subsets.</span>
-<span id="cb13-165"><a href="#cb13-165" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*MS4A1* (CD20) and *MZB1* mark B cells and antibody-secreting Plasma cells, respectively.</span>
-<span id="cb13-166"><a href="#cb13-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-167"><a href="#cb13-167" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb13-168"><a href="#cb13-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-169"><a href="#cb13-169" aria-hidden="true" tabindex="-1"></a><span class="fu">## Exploratory Pseudobulk Analysis (Group-Associated Differences)</span></span>
-<span id="cb13-170"><a href="#cb13-170" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-171"><a href="#cb13-171" aria-hidden="true" tabindex="-1"></a><span class="in">```{r pseudobulk-exploratory-analysis}</span></span>
-<span id="cb13-172"><a href="#cb13-172" aria-hidden="true" tabindex="-1"></a><span class="co"># Aggregate raw counts to donor-celltype pseudobulk level (N=2 per group)</span></span>
-<span id="cb13-173"><a href="#cb13-173" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>donor_celltype <span class="ot">&lt;-</span> <span class="fu">paste</span>(pbmc_clean<span class="sc">$</span>donor_id, pbmc_clean<span class="sc">$</span>cell_type, <span class="at">sep =</span> <span class="st">"_"</span>)</span>
-<span id="cb13-174"><a href="#cb13-174" aria-hidden="true" tabindex="-1"></a>pb_counts <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(pbmc_clean, <span class="at">group.by =</span> <span class="st">"donor_celltype"</span>, <span class="at">slot =</span> <span class="st">"counts"</span>)<span class="sc">$</span>RNA</span>
+<span id="cb13-147"><a href="#cb13-147" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marker-expression-plot, fig.width=11, fig.height=7, out.width="100%", fig.cap="Figure 3: Canonical marker gene expression profile across annotated populations."}</span></span>
+<span id="cb13-148"><a href="#cb13-148" aria-hidden="true" tabindex="-1"></a>canonical_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD4"</span>, <span class="st">"CD8A"</span>, <span class="st">"TRDC"</span>, <span class="st">"NCAM1"</span>, <span class="st">"CD14"</span>, <span class="st">"FCGR3A"</span>, <span class="st">"MS4A1"</span>, <span class="st">"MZB1"</span>, <span class="st">"LYZ"</span>)</span>
+<span id="cb13-149"><a href="#cb13-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-150"><a href="#cb13-150" aria-hidden="true" tabindex="-1"></a><span class="fu">DotPlot</span>(pbmc_clean, <span class="at">features =</span> canonical_markers) <span class="sc">+</span></span>
+<span id="cb13-151"><a href="#cb13-151" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span></span>
+<span id="cb13-152"><a href="#cb13-152" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_c</span>(<span class="at">option =</span> <span class="st">"magma"</span>) <span class="sc">+</span></span>
+<span id="cb13-153"><a href="#cb13-153" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Canonical Lineage Marker Expression"</span>, <span class="at">x =</span> <span class="st">"Marker Gene"</span>, <span class="at">y =</span> <span class="st">"Annotated Cell Type"</span>) <span class="sc">+</span></span>
+<span id="cb13-154"><a href="#cb13-154" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-155"><a href="#cb13-155" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">face =</span> <span class="st">"bold"</span>))</span>
+<span id="cb13-156"><a href="#cb13-156" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-157"><a href="#cb13-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-158"><a href="#cb13-158" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 3</span></span>
+<span id="cb13-159"><a href="#cb13-159" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Marker Fidelity:** Specific marker genes confirm accurate cluster identities:</span>
+<span id="cb13-160"><a href="#cb13-160" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*CD3D*, *CD4*, and *CD8A* uniquely distinguish T lymphocyte subpopulations.</span>
+<span id="cb13-161"><a href="#cb13-161" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*NCAM1* (CD56) highlights cytotoxic NK cell lineages.</span>
+<span id="cb13-162"><a href="#cb13-162" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*CD14*, *FCGR3A*, and *LYZ* explicitly delineate classical and non-classical Monocyte subsets.</span>
+<span id="cb13-163"><a href="#cb13-163" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*MS4A1* (CD20) and *MZB1* mark B cells and antibody-secreting Plasma cells, respectively.</span>
+<span id="cb13-164"><a href="#cb13-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-165"><a href="#cb13-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-166"><a href="#cb13-166" aria-hidden="true" tabindex="-1"></a><span class="fu">## 5 Exploratory Pseudobulk Analysis (Group-Associated Differences)</span></span>
+<span id="cb13-167"><a href="#cb13-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-168"><a href="#cb13-168" aria-hidden="true" tabindex="-1"></a><span class="in">```{r pseudobulk-exploratory-analysis, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 4: Top autosomal gene expression differences between donor groups across major cell populations."}</span></span>
+<span id="cb13-169"><a href="#cb13-169" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Aggregate raw counts to donor-celltype pseudobulk level</span></span>
+<span id="cb13-170"><a href="#cb13-170" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>donor_celltype <span class="ot">&lt;-</span> <span class="fu">paste</span>(pbmc_clean<span class="sc">$</span>donor_id, pbmc_clean<span class="sc">$</span>cell_type, <span class="at">sep =</span> <span class="st">"___"</span>)</span>
+<span id="cb13-171"><a href="#cb13-171" aria-hidden="true" tabindex="-1"></a>pb_counts <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(pbmc_clean, <span class="at">group.by =</span> <span class="st">"donor_celltype"</span>, <span class="at">slot =</span> <span class="st">"counts"</span>)<span class="sc">$</span>RNA</span>
+<span id="cb13-172"><a href="#cb13-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-173"><a href="#cb13-173" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Exclude canonical sex-chromosome genes</span></span>
+<span id="cb13-174"><a href="#cb13-174" aria-hidden="true" tabindex="-1"></a>sex_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"XIST"</span>, <span class="st">"TSIX"</span>, <span class="st">"RPS4Y1"</span>, <span class="st">"DDX3Y"</span>, <span class="st">"KDM5D"</span>, <span class="st">"UTY"</span>, <span class="st">"EIF1AY"</span>, <span class="st">"USP9Y"</span>)</span>
 <span id="cb13-175"><a href="#cb13-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-176"><a href="#cb13-176" aria-hidden="true" tabindex="-1"></a><span class="co"># Canonical sex-chromosome genes</span></span>
-<span id="cb13-177"><a href="#cb13-177" aria-hidden="true" tabindex="-1"></a>sex_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"XIST"</span>, <span class="st">"TSIX"</span>, <span class="st">"RPS4Y1"</span>, <span class="st">"DDX3Y"</span>, <span class="st">"KDM5D"</span>, <span class="st">"UTY"</span>, <span class="st">"EIF1AY"</span>, <span class="st">"USP9Y"</span>)</span>
-<span id="cb13-178"><a href="#cb13-178" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-179"><a href="#cb13-179" aria-hidden="true" tabindex="-1"></a>cell_types <span class="ot">&lt;-</span> <span class="fu">unique</span>(pbmc_clean<span class="sc">$</span>cell_type)</span>
-<span id="cb13-180"><a href="#cb13-180" aria-hidden="true" tabindex="-1"></a>pseudobulk_results <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb13-181"><a href="#cb13-181" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-182"><a href="#cb13-182" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (ct <span class="cf">in</span> cell_types) {</span>
-<span id="cb13-183"><a href="#cb13-183" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Match column names using safe string matching</span></span>
-<span id="cb13-184"><a href="#cb13-184" aria-hidden="true" tabindex="-1"></a>  ct_cols <span class="ot">&lt;-</span> <span class="fu">colnames</span>(pb_counts)[<span class="fu">endsWith</span>(<span class="fu">colnames</span>(pb_counts), <span class="fu">paste0</span>(<span class="st">"_"</span>, ct))]</span>
-<span id="cb13-185"><a href="#cb13-185" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-186"><a href="#cb13-186" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(ct_cols) <span class="sc">==</span> <span class="dv">4</span>) {</span>
-<span id="cb13-187"><a href="#cb13-187" aria-hidden="true" tabindex="-1"></a>    sub_mat <span class="ot">&lt;-</span> pb_counts[, ct_cols]</span>
-<span id="cb13-188"><a href="#cb13-188" aria-hidden="true" tabindex="-1"></a>    males <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor1|Donor2"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb13-189"><a href="#cb13-189" aria-hidden="true" tabindex="-1"></a>    females <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor3|Donor4"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb13-190"><a href="#cb13-190" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-191"><a href="#cb13-191" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate log2 fold-change (Male/Young vs Female/Old)</span></span>
-<span id="cb13-192"><a href="#cb13-192" aria-hidden="true" tabindex="-1"></a>    log2fc_all <span class="ot">&lt;-</span> <span class="fu">log2</span>(<span class="fu">rowMeans</span>(sub_mat[, males, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="fu">rowMeans</span>(sub_mat[, females, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>))</span>
-<span id="cb13-193"><a href="#cb13-193" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-194"><a href="#cb13-194" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Isolate autosomal gene signal</span></span>
-<span id="cb13-195"><a href="#cb13-195" aria-hidden="true" tabindex="-1"></a>    autosomal_genes <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">rownames</span>(sub_mat), sex_genes)</span>
-<span id="cb13-196"><a href="#cb13-196" aria-hidden="true" tabindex="-1"></a>    log2fc_autosomal <span class="ot">&lt;-</span> log2fc_all[autosomal_genes]</span>
-<span id="cb13-197"><a href="#cb13-197" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-198"><a href="#cb13-198" aria-hidden="true" tabindex="-1"></a>    pseudobulk_results[[<span class="fu">as.character</span>(ct)]] <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb13-199"><a href="#cb13-199" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
-<span id="cb13-200"><a href="#cb13-200" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>),</span>
-<span id="cb13-201"><a href="#cb13-201" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
-<span id="cb13-202"><a href="#cb13-202" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>)</span>
-<span id="cb13-203"><a href="#cb13-203" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb13-176"><a href="#cb13-176" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Analyze major immune populations safely</span></span>
+<span id="cb13-177"><a href="#cb13-177" aria-hidden="true" tabindex="-1"></a>target_cells <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD14+ Monocytes"</span>, <span class="st">"CD4+ T cells"</span>, <span class="st">"CD8+ T cells"</span>, <span class="st">"B cells"</span>)</span>
+<span id="cb13-178"><a href="#cb13-178" aria-hidden="true" tabindex="-1"></a>df_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb13-179"><a href="#cb13-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-180"><a href="#cb13-180" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (ct <span class="cf">in</span> target_cells) {</span>
+<span id="cb13-181"><a href="#cb13-181" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Sanitize name to match Seurat's column formatting</span></span>
+<span id="cb13-182"><a href="#cb13-182" aria-hidden="true" tabindex="-1"></a>  ct_sanitized <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"[ +]"</span>, <span class="st">"."</span>, ct)</span>
+<span id="cb13-183"><a href="#cb13-183" aria-hidden="true" tabindex="-1"></a>  cols <span class="ot">&lt;-</span> <span class="fu">colnames</span>(pb_counts)[<span class="fu">grepl</span>(ct_sanitized, <span class="fu">colnames</span>(pb_counts))]</span>
+<span id="cb13-184"><a href="#cb13-184" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-185"><a href="#cb13-185" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(cols) <span class="sc">&gt;=</span> <span class="dv">2</span>) {</span>
+<span id="cb13-186"><a href="#cb13-186" aria-hidden="true" tabindex="-1"></a>    sub_mat <span class="ot">&lt;-</span> pb_counts[, cols, drop <span class="ot">=</span> <span class="cn">FALSE</span>]</span>
+<span id="cb13-187"><a href="#cb13-187" aria-hidden="true" tabindex="-1"></a>    males <span class="ot">&lt;-</span> cols[<span class="fu">grepl</span>(<span class="st">"Donor1|Donor2"</span>, cols)]</span>
+<span id="cb13-188"><a href="#cb13-188" aria-hidden="true" tabindex="-1"></a>    females <span class="ot">&lt;-</span> cols[<span class="fu">grepl</span>(<span class="st">"Donor3|Donor4"</span>, cols)]</span>
+<span id="cb13-189"><a href="#cb13-189" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb13-190"><a href="#cb13-190" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">length</span>(males) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> <span class="fu">length</span>(females) <span class="sc">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb13-191"><a href="#cb13-191" aria-hidden="true" tabindex="-1"></a>      log2fc_all <span class="ot">&lt;-</span> <span class="fu">log2</span>(<span class="fu">rowMeans</span>(sub_mat[, males, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="fu">rowMeans</span>(sub_mat[, females, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>))</span>
+<span id="cb13-192"><a href="#cb13-192" aria-hidden="true" tabindex="-1"></a>      autosomal_genes <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">names</span>(log2fc_all), sex_genes)</span>
+<span id="cb13-193"><a href="#cb13-193" aria-hidden="true" tabindex="-1"></a>      log2fc_auto <span class="ot">&lt;-</span> log2fc_all[autosomal_genes]</span>
+<span id="cb13-194"><a href="#cb13-194" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb13-195"><a href="#cb13-195" aria-hidden="true" tabindex="-1"></a>      top_genes <span class="ot">&lt;-</span> <span class="fu">head</span>(<span class="fu">sort</span>(<span class="fu">abs</span>(log2fc_auto), <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>)</span>
+<span id="cb13-196"><a href="#cb13-196" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb13-197"><a href="#cb13-197" aria-hidden="true" tabindex="-1"></a>      df_list[[ct]] <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb13-198"><a href="#cb13-198" aria-hidden="true" tabindex="-1"></a>        <span class="at">CellType =</span> ct,</span>
+<span id="cb13-199"><a href="#cb13-199" aria-hidden="true" tabindex="-1"></a>        <span class="at">Gene =</span> <span class="fu">names</span>(top_genes),</span>
+<span id="cb13-200"><a href="#cb13-200" aria-hidden="true" tabindex="-1"></a>        <span class="at">Log2FC =</span> log2fc_auto[<span class="fu">names</span>(top_genes)],</span>
+<span id="cb13-201"><a href="#cb13-201" aria-hidden="true" tabindex="-1"></a>        <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb13-202"><a href="#cb13-202" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb13-203"><a href="#cb13-203" aria-hidden="true" tabindex="-1"></a>    }</span>
 <span id="cb13-204"><a href="#cb13-204" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb13-205"><a href="#cb13-205" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb13-206"><a href="#cb13-206" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb13-206"><a href="#cb13-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-207"><a href="#cb13-207" aria-hidden="true" tabindex="-1"></a>results_df <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, df_list)</span>
+<span id="cb13-208"><a href="#cb13-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-209"><a href="#cb13-209" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Render visual comparison chart</span></span>
+<span id="cb13-210"><a href="#cb13-210" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(results_df, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">reorder</span>(Gene, Log2FC), <span class="at">y =</span> Log2FC, <span class="at">fill =</span> Log2FC <span class="sc">&gt;</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb13-211"><a href="#cb13-211" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb13-212"><a href="#cb13-212" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb13-213"><a href="#cb13-213" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>CellType, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb13-214"><a href="#cb13-214" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(</span>
+<span id="cb13-215"><a href="#cb13-215" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"TRUE"</span> <span class="ot">=</span> <span class="st">"#2b5c8f"</span>, <span class="st">"FALSE"</span> <span class="ot">=</span> <span class="st">"#d95f02"</span>), </span>
+<span id="cb13-216"><a href="#cb13-216" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Higher in Females/Older"</span>, <span class="st">"Higher in Males/Younger"</span>)</span>
+<span id="cb13-217"><a href="#cb13-217" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb13-218"><a href="#cb13-218" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-219"><a href="#cb13-219" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb13-220"><a href="#cb13-220" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Top Autosomal Gene Expression Shifts (Pseudobulk)"</span>,</span>
+<span id="cb13-221"><a href="#cb13-221" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Gene"</span>, </span>
+<span id="cb13-222"><a href="#cb13-222" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Log2 Fold Change (Male/Young vs Female/Old)"</span>,</span>
+<span id="cb13-223"><a href="#cb13-223" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Direction"</span></span>
+<span id="cb13-224"><a href="#cb13-224" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb13-225"><a href="#cb13-225" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-226"><a href="#cb13-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-227"><a href="#cb13-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-228"><a href="#cb13-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-229"><a href="#cb13-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-230"><a href="#cb13-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-231"><a href="#cb13-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-232"><a href="#cb13-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-233"><a href="#cb13-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-234"><a href="#cb13-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-235"><a href="#cb13-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-236"><a href="#cb13-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-237"><a href="#cb13-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-238"><a href="#cb13-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-239"><a href="#cb13-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-240"><a href="#cb13-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-241"><a href="#cb13-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-242"><a href="#cb13-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-243"><a href="#cb13-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-244"><a href="#cb13-244" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 

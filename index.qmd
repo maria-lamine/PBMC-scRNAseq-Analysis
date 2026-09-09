@@ -124,7 +124,6 @@ DimPlot(pbmc_clean, reduction = "umap", label = TRUE, repel = TRUE, pt.size = 0.
 * **Lineage Clustering:** T lymphocytes (CD4+ and CD8+) and NK cells form a large continuous super-cluster on the lower axis. Myeloid lineages (CD14+ and FCGR3A+ Monocytes) form a distinct branch on the left, while B cells, Plasmacytoid DCs, and Platelets occupy isolated outer islands.
 * **Quality Control:** Cluster 14 represents residual low-quality cells or doublets, isolated near the center-right margin.
 
----
 
 ## Donor Cell Composition
 
@@ -142,7 +141,6 @@ ggplot(pbmc_clean@meta.data, aes(x = orig.ident, fill = cell_type)) +
 * **Proportional Breakdown:** T cells and CD14+ Monocytes consistently dominate PBMC composition (>70% of total cells across all samples).
 * **Donor Variance:** Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.
 
----
 
 ## Lineage Marker Gene Validation
 
@@ -164,43 +162,84 @@ DotPlot(pbmc_clean, features = canonical_markers) +
   * *CD14*, *FCGR3A*, and *LYZ* explicitly delineate classical and non-classical Monocyte subsets.
   * *MS4A1* (CD20) and *MZB1* mark B cells and antibody-secreting Plasma cells, respectively.
 
----
 
-## Exploratory Pseudobulk Analysis (Group-Associated Differences)
+## 5 Exploratory Pseudobulk Analysis (Group-Associated Differences)
 
-```{r pseudobulk-exploratory-analysis}
-# Aggregate raw counts to donor-celltype pseudobulk level (N=2 per group)
-pbmc_clean$donor_celltype <- paste(pbmc_clean$donor_id, pbmc_clean$cell_type, sep = "_")
+```{r pseudobulk-exploratory-analysis, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 4: Top autosomal gene expression differences between donor groups across major cell populations."}
+# 1. Aggregate raw counts to donor-celltype pseudobulk level
+pbmc_clean$donor_celltype <- paste(pbmc_clean$donor_id, pbmc_clean$cell_type, sep = "___")
 pb_counts <- AggregateExpression(pbmc_clean, group.by = "donor_celltype", slot = "counts")$RNA
 
-# Canonical sex-chromosome genes
+# 2. Exclude canonical sex-chromosome genes
 sex_genes <- c("XIST", "TSIX", "RPS4Y1", "DDX3Y", "KDM5D", "UTY", "EIF1AY", "USP9Y")
 
-cell_types <- unique(pbmc_clean$cell_type)
-pseudobulk_results <- list()
+# 3. Analyze major immune populations safely
+target_cells <- c("CD14+ Monocytes", "CD4+ T cells", "CD8+ T cells", "B cells")
+df_list <- list()
 
-for (ct in cell_types) {
-  # Match column names using safe string matching
-  ct_cols <- colnames(pb_counts)[endsWith(colnames(pb_counts), paste0("_", ct))]
+for (ct in target_cells) {
+  # Sanitize name to match Seurat's column formatting
+  ct_sanitized <- gsub("[ +]", ".", ct)
+  cols <- colnames(pb_counts)[grepl(ct_sanitized, colnames(pb_counts))]
   
-  if (length(ct_cols) == 4) {
-    sub_mat <- pb_counts[, ct_cols]
-    males <- grep("Donor1|Donor2", ct_cols, value = TRUE)
-    females <- grep("Donor3|Donor4", ct_cols, value = TRUE)
+  if (length(cols) >= 2) {
+    sub_mat <- pb_counts[, cols, drop = FALSE]
+    males <- cols[grepl("Donor1|Donor2", cols)]
+    females <- cols[grepl("Donor3|Donor4", cols)]
     
-    # Calculate log2 fold-change (Male/Young vs Female/Old)
-    log2fc_all <- log2(rowMeans(sub_mat[, males, drop = FALSE] + 1) / rowMeans(sub_mat[, females, drop = FALSE] + 1))
-    
-    # Isolate autosomal gene signal
-    autosomal_genes <- setdiff(rownames(sub_mat), sex_genes)
-    log2fc_autosomal <- log2fc_all[autosomal_genes]
-    
-    pseudobulk_results[[as.character(ct)]] <- list(
-      top_male_up_all = head(sort(log2fc_all, decreasing = TRUE), 5),
-      top_female_up_all = head(sort(log2fc_all, decreasing = FALSE), 5),
-      top_male_up_autosomal = head(sort(log2fc_autosomal, decreasing = TRUE), 5),
-      top_female_up_autosomal = head(sort(log2fc_autosomal, decreasing = FALSE), 5)
-    )
+    if (length(males) > 0 && length(females) > 0) {
+      log2fc_all <- log2(rowMeans(sub_mat[, males, drop = FALSE] + 1) / rowMeans(sub_mat[, females, drop = FALSE] + 1))
+      autosomal_genes <- setdiff(names(log2fc_all), sex_genes)
+      log2fc_auto <- log2fc_all[autosomal_genes]
+      
+      top_genes <- head(sort(abs(log2fc_auto), decreasing = TRUE), 5)
+      
+      df_list[[ct]] <- data.frame(
+        CellType = ct,
+        Gene = names(top_genes),
+        Log2FC = log2fc_auto[names(top_genes)],
+        stringsAsFactors = FALSE
+      )
+    }
   }
 }
+
+results_df <- do.call(rbind, df_list)
+
+# 4. Render visual comparison chart
+ggplot(results_df, aes(x = reorder(Gene, Log2FC), y = Log2FC, fill = Log2FC > 0)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~CellType, scales = "free_y") +
+  scale_fill_manual(
+    values = c("TRUE" = "#2b5c8f", "FALSE" = "#d95f02"), 
+    labels = c("Higher in Females/Older", "Higher in Males/Younger")
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Top Autosomal Gene Expression Shifts (Pseudobulk)",
+    x = "Gene", 
+    y = "Log2 Fold Change (Male/Young vs Female/Old)",
+    fill = "Direction"
+  )
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
