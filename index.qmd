@@ -1,6 +1,6 @@
 ---
 title: "Cell Types Beyond Lymphocytes: Multi-Sample scRNA-seq Analysis of Human PBMCs"
-author: "Maria and Eylul"
+author: "Maria" 
 format:
   html:
     toc: true
@@ -13,113 +13,194 @@ execute:
   warning: false
   message: false
 ---
-
 ```{r setup}
 library(Seurat)
 library(tidyverse)
 library(patchwork)
 library(viridis)
+```
 
-# Load datasets and assign metadata
+```{r load-and-merge-data}
+# Helper function to load datasets and attach donor metadata
 load_donor <- function(file_path, donor_id, sex, age_group) {
   counts <- Read10X_h5(file_path)
   obj <- CreateSeuratObject(counts = counts, project = donor_id, min.cells = 3, min.features = 200)
-  obj$donor <- donor_id
+  obj$donor_id <- donor_id
   obj$sex <- sex
   obj$age_group <- age_group
   obj[["percent.mt"]] <- PercentageFeatureSet(obj, pattern = "^MT-")
   return(obj)
 }
 
+# Load individual datasets
 d1 <- load_donor("data/donor1.h5", "Donor1", "Male", "18-35")
 d2 <- load_donor("data/donor2.h5", "Donor2", "Male", "18-35")
 d3 <- load_donor("data/donor3.h5", "Donor3", "Female", "36-50")
 d4 <- load_donor("data/donor4.h5", "Donor4", "Female", "36-50")
 
+# Merge into a single unified Seurat object at the beginning
 pbmc <- merge(d1, y = c(d2, d3, d4), add.cell.ids = c("D1", "D2", "D3", "D4"))
-
-# QC Filtering
-pbmc <- subset(pbmc, subset = nFeature_RNA > 500 & nFeature_RNA < 4500 & percent.mt < 15)
-
-# Normalization & Dimensionality Reduction
-pbmc <- NormalizeData(pbmc)
-pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
-pbmc <- ScaleData(pbmc)
-pbmc <- RunPCA(pbmc, npcs = 30)
-pbmc <- RunUMAP(pbmc, dims = 1:20)
-pbmc <- FindNeighbors(pbmc, dims = 1:20)
-pbmc <- FindClusters(pbmc, resolution = 0.4)
-
-# Cell Type Annotation
-cluster_ids <- c(
-  "0" = "CD4 T Cells", "1" = "CD14+ Monocytes", "2" = "CD8 T Cells",
-  "3" = "NK Cells", "4" = "B Cells", "5" = "CD14+ Monocytes",
-  "6" = "FCGR3A+ Monocytes", "7" = "Dendritic Cells", "8" = "Platelets"
-)
-pbmc <- RenameIdents(pbmc, cluster_ids)
-pbmc$cell_type <- Idents(pbmc)
 ```
 
-# Quality Control
+## Quality Control Diagnostics
+```{r qc-visualization, fig.width=11, fig.height=10, out.width="100%", fig.cap="Figure: Pre-filtering QC metrics across all merged donor samples."}
+# 1. Visualize distributions of features, counts, and mitochondrial content
+vln_qc <- VlnPlot(
+  pbmc, 
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), 
+  group.by = "donor_id",
+  ncol = 3, 
+  pt.size = 0.1
+) & scale_fill_viridis_d(option = "mako")
 
-```{r qc-plot, fig.cap="Mitochondrial and gene count metrics per donor prior to cell filtering."}
-VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = "donor", ncol = 3)
-```
-
-```{r cluster-renaming}
-# Rename unannotated clusters
-pbmc_clean <- RenameIdents(pbmc,
-  '9'  = "Plasmablasts",
-  '11' = "gamma-delta T cells",
-  '10' = "Doublets/Artifacts",
-  '12' = "Doublets/Artifacts",
-  '13' = "Platelet-T Doublets",
-  '14' = "Platelet-T Doublets"
-)
-
-# Filter out identified doublets/artifacts
-pbmc_clean <- subset(pbmc_clean, idents = c("Doublets/Artifacts", "Platelet-T Doublets"), invert = TRUE)
-```
-
-```{r umap-plot, fig.cap="UMAP projection of annotated PBMC populations."}
-DimPlot(pbmc_clean, reduction = "umap", label = TRUE, repel = TRUE) + 
-  scale_color_viridis_d(option = "turbo")
-```
-
-# Downstream Analysis & Validation
-
-```{r downstream-analysis, fig.width=10, fig.height=6}
-# 1. Plot cell type proportions across donors
-p1 <- ggplot(pbmc_clean@meta.data, aes(x = orig.ident, fill = Idents(pbmc_clean))) +
-  geom_bar(position = "fill") +
+# 2. Scatter plot to evaluate doublet/technical artifact relationships
+scatter_qc <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "donor_id") +
   theme_minimal() +
-  labs(y = "Proportion", x = "Donor", fill = "Cell Type", title = "Cell Composition") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs(title = "RNA Counts vs. Unique Genes")
 
-# 2. DotPlot of canonical markers across cell types
-canonical_markers <- c("CD3D", "CD4", "CD8A", "TRDC", "NCAM1", "CD14", "FCGR3A", "MS4A1", "MZB1", "LYZ")
-p2 <- DotPlot(pbmc_clean, features = canonical_markers) + 
-  RotatedAxis() + 
-  labs(title = "Lineage Marker Expression")
-
-# Display plots side-by-side
-p1 + p2
+# Display both plots stacked together
+vln_qc / scatter_qc
 ```
 
+**Quality Control Parameter Interpretations**
 
+* **nFeature_RNA (Gene Count per Cell):** Counts the unique genes identified in a single cell. Cells with less than 500 genes are excluded as empty droplets or low-quality debris. Cells with more than 4,500 genes are excluded because they likely represent doublets.
+* **nCount_RNA (Total UMI Count):** Measures total sequencing depth per cell. High correlation with nFeature_RNA indicates standard library prep quality without abnormal sequencing artifacts.
+* **percent.mt (Mitochondrial RNA Percentage):** Indicates cell viability. Stressed or dying cells lose cytoplasmic RNA while retaining mitochondrial transcripts. A threshold of less than 15% removes dying cells without depleting metabolic immune cells.
 
+```{r qc-filtering}
+# Quality control filtering
+pbmc_clean <- subset(pbmc, subset = nFeature_RNA > 500 & nFeature_RNA < 4500 & percent.mt < 15)
+```
 
+```{r normalization-and-dimred}
+# Normalization, variable feature selection, scaling, and PCA
+pbmc_clean <- NormalizeData(pbmc_clean)
+pbmc_clean <- FindVariableFeatures(pbmc_clean, selection.method = "vst", nfeatures = 2000)
+pbmc_clean <- ScaleData(pbmc_clean)
+pbmc_clean <- RunPCA(pbmc_clean, npcs = 30)
 
+# Graph-based clustering and UMAP embedding
+pbmc_clean <- FindNeighbors(pbmc_clean, dims = 1:20)
+pbmc_clean <- FindClusters(pbmc_clean, resolution = 0.4)
+pbmc_clean <- RunUMAP(pbmc_clean, dims = 1:20)
+```
 
+```{r cell-type-annotation}
+# Complete mapping for all 15 clusters (0 through 14)
+new_cluster_ids <- c(
+  "0"  = "CD4+ T cells",
+  "1"  = "CD14+ Monocytes",
+  "2"  = "CD8+ T cells",
+  "3"  = "NK cells",
+  "4"  = "B cells",
+  "5"  = "FCGR3A+ Monocytes",
+  "6"  = "Dendritic cells",
+  "7"  = "Platelets",
+  "8"  = "CD14+ Monocyte subset",
+  "9"  = "Plasmacytoid DCs",
+  "10" = "Plasma B cells",
+  "11" = "NK T cells",
+  "12" = "Naive CD8+ T cells",
+  "13" = "Cytotoxic T subset",
+  "14" = "Low-quality / Doublets"
+)
 
+pbmc_clean <- RenameIdents(pbmc_clean, new_cluster_ids)
+pbmc_clean$cell_type <- Idents(pbmc_clean)
+```
 
+## Dimensionality Reduction (UMAP)
 
+```{r umap-plot, fig.width=11, fig.height=8, out.width="100%", fig.cap="Figure 1: UMAP visualization of fully annotated PBMC clusters across all four donors."}
+DimPlot(pbmc_clean, reduction = "umap", label = TRUE, repel = TRUE, pt.size = 0.6) +
+  scale_color_viridis_d(option = "turbo") +
+  theme_minimal() +
+  labs(title = "UMAP Visualization of Annotated PBMC Populations", x = "UMAP 1", y = "UMAP 2")
+```
 
+### Analysis & Observations: Figure 1
+* **Dimensionality Reduction:** Non-linear 2D projection groups single cells based on transcriptome-wide similarity.
+* **Lineage Clustering:** T lymphocytes (CD4+ and CD8+) and NK cells form a large continuous super-cluster on the lower axis. Myeloid lineages (CD14+ and FCGR3A+ Monocytes) form a distinct branch on the left, while B cells, Plasmacytoid DCs, and Platelets occupy isolated outer islands.
+* **Quality Control:** Cluster 14 represents residual low-quality cells or doublets, isolated near the center-right margin.
 
+---
 
+## Donor Cell Composition
 
+```{r composition-plot, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 2: Relative proportion of each cell population across individual donors."}
+ggplot(pbmc_clean@meta.data, aes(x = orig.ident, fill = cell_type)) +
+  geom_bar(position = "fill", width = 0.65) +
+  scale_fill_viridis_d(option = "turbo") +
+  theme_minimal() +
+  labs(y = "Proportion", x = "Donor ID", fill = "Cell Population", title = "Immune Cell Type Composition Across Donors") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, face = "bold"),
+        legend.position = "right")
+```
 
+### Analysis & Observations: Figure 2
+* **Proportional Breakdown:** T cells and CD14+ Monocytes consistently dominate PBMC composition (>70% of total cells across all samples).
+* **Donor Variance:** Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.
 
+---
 
+## Lineage Marker Gene Validation
 
+```{r marker-expression-plot, fig.width=11, fig.height=7, out.width="100%", fig.cap="Figure 3: Canonical marker gene expression profile across annotated populations."}
+canonical_markers <- c("CD3D", "CD4", "CD8A", "TRDC", "NCAM1", "CD14", "FCGR3A", "MS4A1", "MZB1", "LYZ")
 
+DotPlot(pbmc_clean, features = canonical_markers) +
+  RotatedAxis() +
+  scale_color_viridis_c(option = "magma") +
+  labs(title = "Canonical Lineage Marker Expression", x = "Marker Gene", y = "Annotated Cell Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"))
+```
+
+### Analysis & Observations: Figure 3
+* **Marker Fidelity:** Specific marker genes confirm accurate cluster identities:
+  * *CD3D*, *CD4*, and *CD8A* uniquely distinguish T lymphocyte subpopulations.
+  * *NCAM1* (CD56) highlights cytotoxic NK cell lineages.
+  * *CD14*, *FCGR3A*, and *LYZ* explicitly delineate classical and non-classical Monocyte subsets.
+  * *MS4A1* (CD20) and *MZB1* mark B cells and antibody-secreting Plasma cells, respectively.
+
+---
+
+## Exploratory Pseudobulk Analysis (Group-Associated Differences)
+
+```{r pseudobulk-exploratory-analysis}
+# Aggregate raw counts to donor-celltype pseudobulk level (N=2 per group)
+pbmc_clean$donor_celltype <- paste(pbmc_clean$donor_id, pbmc_clean$cell_type, sep = "_")
+pb_counts <- AggregateExpression(pbmc_clean, group.by = "donor_celltype", slot = "counts")$RNA
+
+# Canonical sex-chromosome genes
+sex_genes <- c("XIST", "TSIX", "RPS4Y1", "DDX3Y", "KDM5D", "UTY", "EIF1AY", "USP9Y")
+
+cell_types <- unique(pbmc_clean$cell_type)
+pseudobulk_results <- list()
+
+for (ct in cell_types) {
+  # Match column names using safe string matching
+  ct_cols <- colnames(pb_counts)[endsWith(colnames(pb_counts), paste0("_", ct))]
+  
+  if (length(ct_cols) == 4) {
+    sub_mat <- pb_counts[, ct_cols]
+    males <- grep("Donor1|Donor2", ct_cols, value = TRUE)
+    females <- grep("Donor3|Donor4", ct_cols, value = TRUE)
+    
+    # Calculate log2 fold-change (Male/Young vs Female/Old)
+    log2fc_all <- log2(rowMeans(sub_mat[, males, drop = FALSE] + 1) / rowMeans(sub_mat[, females, drop = FALSE] + 1))
+    
+    # Isolate autosomal gene signal
+    autosomal_genes <- setdiff(rownames(sub_mat), sex_genes)
+    log2fc_autosomal <- log2fc_all[autosomal_genes]
+    
+    pseudobulk_results[[as.character(ct)]] <- list(
+      top_male_up_all = head(sort(log2fc_all, decreasing = TRUE), 5),
+      top_female_up_all = head(sort(log2fc_all, decreasing = FALSE), 5),
+      top_male_up_autosomal = head(sort(log2fc_autosomal, decreasing = TRUE), 5),
+      top_female_up_autosomal = head(sort(log2fc_autosomal, decreasing = FALSE), 5)
+    )
+  }
+}
+```

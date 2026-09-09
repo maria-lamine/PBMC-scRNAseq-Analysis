@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Maria and Eylul">
+<meta name="author" content="Maria">
 
 <title>Cell Types Beyond Lymphocytes: Multi-Sample scRNA-seq Analysis of Human PBMCs</title>
 <style>
@@ -85,8 +85,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#quality-control" id="toc-quality-control" class="nav-link active" data-scroll-target="#quality-control"><span class="header-section-number">1</span> Quality Control</a></li>
-  <li><a href="#downstream-analysis-validation" id="toc-downstream-analysis-validation" class="nav-link" data-scroll-target="#downstream-analysis-validation"><span class="header-section-number">2</span> Downstream Analysis &amp; Validation</a></li>
+  <li><a href="#quality-control-diagnostics" id="toc-quality-control-diagnostics" class="nav-link active" data-scroll-target="#quality-control-diagnostics"><span class="header-section-number">1</span> Quality Control Diagnostics</a></li>
+  <li><a href="#dimensionality-reduction-umap" id="toc-dimensionality-reduction-umap" class="nav-link" data-scroll-target="#dimensionality-reduction-umap"><span class="header-section-number">2</span> Dimensionality Reduction (UMAP)</a>
+  <ul class="collapse">
+  <li><a href="#analysis-observations-figure-1" id="toc-analysis-observations-figure-1" class="nav-link" data-scroll-target="#analysis-observations-figure-1"><span class="header-section-number">2.1</span> Analysis &amp; Observations: Figure 1</a></li>
+  </ul></li>
+  <li><a href="#donor-cell-composition" id="toc-donor-cell-composition" class="nav-link" data-scroll-target="#donor-cell-composition"><span class="header-section-number">3</span> Donor Cell Composition</a>
+  <ul class="collapse">
+  <li><a href="#analysis-observations-figure-2" id="toc-analysis-observations-figure-2" class="nav-link" data-scroll-target="#analysis-observations-figure-2"><span class="header-section-number">3.1</span> Analysis &amp; Observations: Figure 2</a></li>
+  </ul></li>
+  <li><a href="#lineage-marker-gene-validation" id="toc-lineage-marker-gene-validation" class="nav-link" data-scroll-target="#lineage-marker-gene-validation"><span class="header-section-number">4</span> Lineage Marker Gene Validation</a>
+  <ul class="collapse">
+  <li><a href="#analysis-observations-figure-3" id="toc-analysis-observations-figure-3" class="nav-link" data-scroll-target="#analysis-observations-figure-3"><span class="header-section-number">4.1</span> Analysis &amp; Observations: Figure 3</a></li>
+  </ul></li>
+  <li><a href="#exploratory-pseudobulk-analysis-group-associated-differences" id="toc-exploratory-pseudobulk-analysis-group-associated-differences" class="nav-link" data-scroll-target="#exploratory-pseudobulk-analysis-group-associated-differences"><span class="header-section-number">5</span> Exploratory Pseudobulk Analysis (Group-Associated Differences)</a></li>
   </ul>
 </nav>
 </div>
@@ -104,7 +116,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Author</div>
     <div class="quarto-title-meta-contents">
-             <p>Maria and Eylul </p>
+             <p>Maria </p>
           </div>
   </div>
     
@@ -123,37 +135,89 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(viridis)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Load datasets and assign metadata</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>load_donor <span class="ot">&lt;-</span> <span class="cf">function</span>(file_path, donor_id, sex, age_group) {</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  counts <span class="ot">&lt;-</span> <span class="fu">Read10X_h5</span>(file_path)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  obj <span class="ot">&lt;-</span> <span class="fu">CreateSeuratObject</span>(<span class="at">counts =</span> counts, <span class="at">project =</span> donor_id, <span class="at">min.cells =</span> <span class="dv">3</span>, <span class="at">min.features =</span> <span class="dv">200</span>)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>donor <span class="ot">&lt;-</span> donor_id</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>sex <span class="ot">&lt;-</span> sex</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>age_group <span class="ot">&lt;-</span> age_group</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  obj[[<span class="st">"percent.mt"</span>]] <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(obj, <span class="at">pattern =</span> <span class="st">"^MT-"</span>)</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(obj)</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor1.h5"</span>, <span class="st">"Donor1"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>d2 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor2.h5"</span>, <span class="st">"Donor2"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>d3 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor3.h5"</span>, <span class="st">"Donor3"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>d4 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor4.h5"</span>, <span class="st">"Donor4"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">merge</span>(d1, <span class="at">y =</span> <span class="fu">c</span>(d2, d3, d4), <span class="at">add.cell.ids =</span> <span class="fu">c</span>(<span class="st">"D1"</span>, <span class="st">"D2"</span>, <span class="st">"D3"</span>, <span class="st">"D4"</span>))</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="co"># QC Filtering</span></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc, <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> nFeature_RNA <span class="sc">&lt;</span> <span class="dv">4500</span> <span class="sc">&amp;</span> percent.mt <span class="sc">&lt;</span> <span class="dv">15</span>)</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalization &amp; Dimensionality Reduction</span></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(pbmc)</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(pbmc, <span class="at">selection.method =</span> <span class="st">"vst"</span>, <span class="at">nfeatures =</span> <span class="dv">2000</span>)</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc)</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(pbmc, <span class="at">npcs =</span> <span class="dv">30</span>)</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc, <span class="at">resolution =</span> <span class="fl">0.4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(viridis)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper function to load datasets and attach donor metadata</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>load_donor <span class="ot">&lt;-</span> <span class="cf">function</span>(file_path, donor_id, sex, age_group) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  counts <span class="ot">&lt;-</span> <span class="fu">Read10X_h5</span>(file_path)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  obj <span class="ot">&lt;-</span> <span class="fu">CreateSeuratObject</span>(<span class="at">counts =</span> counts, <span class="at">project =</span> donor_id, <span class="at">min.cells =</span> <span class="dv">3</span>, <span class="at">min.features =</span> <span class="dv">200</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>donor_id <span class="ot">&lt;-</span> donor_id</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>sex <span class="ot">&lt;-</span> sex</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>age_group <span class="ot">&lt;-</span> age_group</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  obj[[<span class="st">"percent.mt"</span>]] <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(obj, <span class="at">pattern =</span> <span class="st">"^MT-"</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(obj)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Load individual datasets</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor1.h5"</span>, <span class="st">"Donor1"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>d2 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor2.h5"</span>, <span class="st">"Donor2"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>d3 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor3.h5"</span>, <span class="st">"Donor3"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>d4 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor4.h5"</span>, <span class="st">"Donor4"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge into a single unified Seurat object at the beginning</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">merge</span>(d1, <span class="at">y =</span> <span class="fu">c</span>(d2, d3, d4), <span class="at">add.cell.ids =</span> <span class="fu">c</span>(<span class="st">"D1"</span>, <span class="st">"D2"</span>, <span class="st">"D3"</span>, <span class="st">"D4"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="quality-control-diagnostics" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="quality-control-diagnostics"><span class="header-section-number">1</span> Quality Control Diagnostics</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Visualize distributions of features, counts, and mitochondrial content</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>vln_qc <span class="ot">&lt;-</span> <span class="fu">VlnPlot</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  pbmc, </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"nFeature_RNA"</span>, <span class="st">"nCount_RNA"</span>, <span class="st">"percent.mt"</span>), </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"donor_id"</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">ncol =</span> <span class="dv">3</span>, </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="fl">0.1</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>) <span class="sc">&amp;</span> <span class="fu">scale_fill_viridis_d</span>(<span class="at">option =</span> <span class="st">"mako"</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Scatter plot to evaluate doublet/technical artifact relationships</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>scatter_qc <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">"nCount_RNA"</span>, <span class="at">feature2 =</span> <span class="st">"nFeature_RNA"</span>, <span class="at">group.by =</span> <span class="st">"donor_id"</span>) <span class="sc">+</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"RNA Counts vs. Unique Genes"</span>)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Display both plots stacked together</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>vln_qc <span class="sc">/</span> scatter_qc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/qc-visualization-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>Figure: Pre-filtering QC metrics across all merged donor samples.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p><strong>Quality Control Parameter Interpretations</strong></p>
+<ul>
+<li><strong>nFeature_RNA (Gene Count per Cell):</strong> Counts the unique genes identified in a single cell. Cells with less than 500 genes are excluded as empty droplets or low-quality debris. Cells with more than 4,500 genes are excluded because they likely represent doublets.</li>
+<li><strong>nCount_RNA (Total UMI Count):</strong> Measures total sequencing depth per cell. High correlation with nFeature_RNA indicates standard library prep quality without abnormal sequencing artifacts.</li>
+<li><strong>percent.mt (Mitochondrial RNA Percentage):</strong> Indicates cell viability. Stressed or dying cells lose cytoplasmic RNA while retaining mitochondrial transcripts. A threshold of less than 15% removes dying cells without depleting metabolic immune cells.</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Quality control filtering</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc, <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> nFeature_RNA <span class="sc">&lt;</span> <span class="dv">4500</span> <span class="sc">&amp;</span> percent.mt <span class="sc">&lt;</span> <span class="dv">15</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalization, variable feature selection, scaling, and PCA</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(pbmc_clean)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(pbmc_clean, <span class="at">selection.method =</span> <span class="st">"vst"</span>, <span class="at">nfeatures =</span> <span class="dv">2000</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc_clean)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(pbmc_clean, <span class="at">npcs =</span> <span class="dv">30</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Graph-based clustering and UMAP embedding</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(pbmc_clean, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc_clean, <span class="at">resolution =</span> <span class="fl">0.4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
@@ -168,93 +232,173 @@ Elapsed time: 2 seconds</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cell Type Annotation</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>cluster_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"0"</span> <span class="ot">=</span> <span class="st">"CD4 T Cells"</span>, <span class="st">"1"</span> <span class="ot">=</span> <span class="st">"CD14+ Monocytes"</span>, <span class="st">"2"</span> <span class="ot">=</span> <span class="st">"CD8 T Cells"</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"3"</span> <span class="ot">=</span> <span class="st">"NK Cells"</span>, <span class="st">"4"</span> <span class="ot">=</span> <span class="st">"B Cells"</span>, <span class="st">"5"</span> <span class="ot">=</span> <span class="st">"CD14+ Monocytes"</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"6"</span> <span class="ot">=</span> <span class="st">"FCGR3A+ Monocytes"</span>, <span class="st">"7"</span> <span class="ot">=</span> <span class="st">"Dendritic Cells"</span>, <span class="st">"8"</span> <span class="ot">=</span> <span class="st">"Platelets"</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc, cluster_ids)</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">$</span>cell_type <span class="ot">&lt;-</span> <span class="fu">Idents</span>(pbmc)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</details>
-</div>
-<section id="quality-control" class="level1" data-number="1">
-<h1 data-number="1"><span class="header-section-number">1</span> Quality Control</h1>
-<div class="cell">
-<details class="code-fold">
-<summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"nFeature_RNA"</span>, <span class="st">"nCount_RNA"</span>, <span class="st">"percent.mt"</span>), <span class="at">group.by =</span> <span class="st">"donor"</span>, <span class="at">ncol =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</details>
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="index_files/figure-html/qc-plot-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption>Mitochondrial and gene count metrics per donor prior to cell filtering.</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<details class="code-fold">
-<summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename unannotated clusters</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc,</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">'9'</span>  <span class="ot">=</span> <span class="st">"Plasmablasts"</span>,</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">'11'</span> <span class="ot">=</span> <span class="st">"gamma-delta T cells"</span>,</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">'10'</span> <span class="ot">=</span> <span class="st">"Doublets/Artifacts"</span>,</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">'12'</span> <span class="ot">=</span> <span class="st">"Doublets/Artifacts"</span>,</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">'13'</span> <span class="ot">=</span> <span class="st">"Platelet-T Doublets"</span>,</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">'14'</span> <span class="ot">=</span> <span class="st">"Platelet-T Doublets"</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter out identified doublets/artifacts</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc_clean, <span class="at">idents =</span> <span class="fu">c</span>(<span class="st">"Doublets/Artifacts"</span>, <span class="st">"Platelet-T Doublets"</span>), <span class="at">invert =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(pbmc_clean, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc_clean, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">label =</span> <span class="cn">TRUE</span>, <span class="at">repel =</span> <span class="cn">TRUE</span>) <span class="sc">+</span> </span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Complete mapping for all 15 clusters (0 through 14)</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>new_cluster_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"0"</span>  <span class="ot">=</span> <span class="st">"CD4+ T cells"</span>,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"1"</span>  <span class="ot">=</span> <span class="st">"CD14+ Monocytes"</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"2"</span>  <span class="ot">=</span> <span class="st">"CD8+ T cells"</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"3"</span>  <span class="ot">=</span> <span class="st">"NK cells"</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"4"</span>  <span class="ot">=</span> <span class="st">"B cells"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"5"</span>  <span class="ot">=</span> <span class="st">"FCGR3A+ Monocytes"</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"6"</span>  <span class="ot">=</span> <span class="st">"Dendritic cells"</span>,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">"7"</span>  <span class="ot">=</span> <span class="st">"Platelets"</span>,</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"8"</span>  <span class="ot">=</span> <span class="st">"CD14+ Monocyte subset"</span>,</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="st">"9"</span>  <span class="ot">=</span> <span class="st">"Plasmacytoid DCs"</span>,</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="st">"10"</span> <span class="ot">=</span> <span class="st">"Plasma B cells"</span>,</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="st">"11"</span> <span class="ot">=</span> <span class="st">"NK T cells"</span>,</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  <span class="st">"12"</span> <span class="ot">=</span> <span class="st">"Naive CD8+ T cells"</span>,</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  <span class="st">"13"</span> <span class="ot">=</span> <span class="st">"Cytotoxic T subset"</span>,</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="st">"14"</span> <span class="ot">=</span> <span class="st">"Low-quality / Doublets"</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc_clean, new_cluster_ids)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>cell_type <span class="ot">&lt;-</span> <span class="fu">Idents</span>(pbmc_clean)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="index_files/figure-html/umap-plot-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption>UMAP projection of annotated PBMC populations.</figcaption>
-</figure>
-</div>
-</div>
 </div>
 </section>
-<section id="downstream-analysis-validation" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> Downstream Analysis &amp; Validation</h1>
+<section id="dimensionality-reduction-umap" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="dimensionality-reduction-umap"><span class="header-section-number">2</span> Dimensionality Reduction (UMAP)</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Plot cell type proportions across donors</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(pbmc_clean<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> orig.ident, <span class="at">fill =</span> <span class="fu">Idents</span>(pbmc_clean))) <span class="sc">+</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"fill"</span>) <span class="sc">+</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Donor"</span>, <span class="at">fill =</span> <span class="st">"Cell Type"</span>, <span class="at">title =</span> <span class="st">"Cell Composition"</span>) <span class="sc">+</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. DotPlot of canonical markers across cell types</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>canonical_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD4"</span>, <span class="st">"CD8A"</span>, <span class="st">"TRDC"</span>, <span class="st">"NCAM1"</span>, <span class="st">"CD14"</span>, <span class="st">"FCGR3A"</span>, <span class="st">"MS4A1"</span>, <span class="st">"MZB1"</span>, <span class="st">"LYZ"</span>)</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DotPlot</span>(pbmc_clean, <span class="at">features =</span> canonical_markers) <span class="sc">+</span> </span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span> </span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Lineage Marker Expression"</span>)</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Display plots side-by-side</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">+</span> p2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc_clean, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">label =</span> <span class="cn">TRUE</span>, <span class="at">repel =</span> <span class="cn">TRUE</span>, <span class="at">pt.size =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>) <span class="sc">+</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Visualization of Annotated PBMC Populations"</span>, <span class="at">x =</span> <span class="st">"UMAP 1"</span>, <span class="at">y =</span> <span class="st">"UMAP 2"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div>
+<div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="index_files/figure-html/downstream-analysis-1.png" class="img-fluid figure-img" width="960"></p>
+<p><img src="index_files/figure-html/umap-plot-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>Figure 1: UMAP visualization of fully annotated PBMC clusters across all four donors.</figcaption>
 </figure>
 </div>
 </div>
+</div>
+<section id="analysis-observations-figure-1" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="analysis-observations-figure-1"><span class="header-section-number">2.1</span> Analysis &amp; Observations: Figure 1</h3>
+<ul>
+<li><strong>Dimensionality Reduction:</strong> Non-linear 2D projection groups single cells based on transcriptome-wide similarity.</li>
+<li><strong>Lineage Clustering:</strong> T lymphocytes (CD4+ and CD8+) and NK cells form a large continuous super-cluster on the lower axis. Myeloid lineages (CD14+ and FCGR3A+ Monocytes) form a distinct branch on the left, while B cells, Plasmacytoid DCs, and Platelets occupy isolated outer islands.</li>
+<li><strong>Quality Control:</strong> Cluster 14 represents residual low-quality cells or doublets, isolated near the center-right margin.</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="donor-cell-composition" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="donor-cell-composition"><span class="header-section-number">3</span> Donor Cell Composition</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(pbmc_clean<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> orig.ident, <span class="at">fill =</span> cell_type)) <span class="sc">+</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"fill"</span>, <span class="at">width =</span> <span class="fl">0.65</span>) <span class="sc">+</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>) <span class="sc">+</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Donor ID"</span>, <span class="at">fill =</span> <span class="st">"Cell Population"</span>, <span class="at">title =</span> <span class="st">"Immune Cell Type Composition Across Donors"</span>) <span class="sc">+</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">0</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"right"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/composition-plot-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>Figure 2: Relative proportion of each cell population across individual donors.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="analysis-observations-figure-2" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="analysis-observations-figure-2"><span class="header-section-number">3.1</span> Analysis &amp; Observations: Figure 2</h3>
+<ul>
+<li><strong>Proportional Breakdown:</strong> T cells and CD14+ Monocytes consistently dominate PBMC composition (&gt;70% of total cells across all samples).</li>
+<li><strong>Donor Variance:</strong> Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="lineage-marker-gene-validation" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="lineage-marker-gene-validation"><span class="header-section-number">4</span> Lineage Marker Gene Validation</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>canonical_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD4"</span>, <span class="st">"CD8A"</span>, <span class="st">"TRDC"</span>, <span class="st">"NCAM1"</span>, <span class="st">"CD14"</span>, <span class="st">"FCGR3A"</span>, <span class="st">"MS4A1"</span>, <span class="st">"MZB1"</span>, <span class="st">"LYZ"</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="fu">DotPlot</span>(pbmc_clean, <span class="at">features =</span> canonical_markers) <span class="sc">+</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_c</span>(<span class="at">option =</span> <span class="st">"magma"</span>) <span class="sc">+</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Canonical Lineage Marker Expression"</span>, <span class="at">x =</span> <span class="st">"Marker Gene"</span>, <span class="at">y =</span> <span class="st">"Annotated Cell Type"</span>) <span class="sc">+</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">face =</span> <span class="st">"bold"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/marker-expression-plot-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>Figure 3: Canonical marker gene expression profile across annotated populations.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="analysis-observations-figure-3" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="analysis-observations-figure-3"><span class="header-section-number">4.1</span> Analysis &amp; Observations: Figure 3</h3>
+<ul>
+<li><strong>Marker Fidelity:</strong> Specific marker genes confirm accurate cluster identities:
+<ul>
+<li><em>CD3D</em>, <em>CD4</em>, and <em>CD8A</em> uniquely distinguish T lymphocyte subpopulations.</li>
+<li><em>NCAM1</em> (CD56) highlights cytotoxic NK cell lineages.</li>
+<li><em>CD14</em>, <em>FCGR3A</em>, and <em>LYZ</em> explicitly delineate classical and non-classical Monocyte subsets.</li>
+<li><em>MS4A1</em> (CD20) and <em>MZB1</em> mark B cells and antibody-secreting Plasma cells, respectively.</li>
+</ul></li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="exploratory-pseudobulk-analysis-group-associated-differences" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="exploratory-pseudobulk-analysis-group-associated-differences"><span class="header-section-number">5</span> Exploratory Pseudobulk Analysis (Group-Associated Differences)</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Aggregate raw counts to donor-celltype pseudobulk level (N=2 per group)</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>donor_celltype <span class="ot">&lt;-</span> <span class="fu">paste</span>(pbmc_clean<span class="sc">$</span>donor_id, pbmc_clean<span class="sc">$</span>cell_type, <span class="at">sep =</span> <span class="st">"_"</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>pb_counts <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(pbmc_clean, <span class="at">group.by =</span> <span class="st">"donor_celltype"</span>, <span class="at">slot =</span> <span class="st">"counts"</span>)<span class="sc">$</span>RNA</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Canonical sex-chromosome genes</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>sex_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"XIST"</span>, <span class="st">"TSIX"</span>, <span class="st">"RPS4Y1"</span>, <span class="st">"DDX3Y"</span>, <span class="st">"KDM5D"</span>, <span class="st">"UTY"</span>, <span class="st">"EIF1AY"</span>, <span class="st">"USP9Y"</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>cell_types <span class="ot">&lt;-</span> <span class="fu">unique</span>(pbmc_clean<span class="sc">$</span>cell_type)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>pseudobulk_results <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (ct <span class="cf">in</span> cell_types) {</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Match column names using safe string matching</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  ct_cols <span class="ot">&lt;-</span> <span class="fu">colnames</span>(pb_counts)[<span class="fu">endsWith</span>(<span class="fu">colnames</span>(pb_counts), <span class="fu">paste0</span>(<span class="st">"_"</span>, ct))]</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(ct_cols) <span class="sc">==</span> <span class="dv">4</span>) {</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    sub_mat <span class="ot">&lt;-</span> pb_counts[, ct_cols]</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    males <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor1|Donor2"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    females <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor3|Donor4"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate log2 fold-change (Male/Young vs Female/Old)</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    log2fc_all <span class="ot">&lt;-</span> <span class="fu">log2</span>(<span class="fu">rowMeans</span>(sub_mat[, males, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="fu">rowMeans</span>(sub_mat[, females, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>))</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Isolate autosomal gene signal</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    autosomal_genes <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">rownames</span>(sub_mat), sex_genes)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    log2fc_autosomal <span class="ot">&lt;-</span> log2fc_all[autosomal_genes]</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    pseudobulk_results[[<span class="fu">as.character</span>(ct)]] <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>),</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>)</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
 </div>
 <!-- -->
 
@@ -713,130 +857,212 @@ Elapsed time: 2 seconds</code></pre>
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Cell Types Beyond Lymphocytes: Multi-Sample scRNA-seq Analysis of Human PBMCs"</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Maria and Eylul"</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="co">  message: false</span></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup}</span></span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(viridis)</span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Load datasets and assign metadata</span></span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>load_donor <span class="ot">&lt;-</span> <span class="cf">function</span>(file_path, donor_id, sex, age_group) {</span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>  counts <span class="ot">&lt;-</span> <span class="fu">Read10X_h5</span>(file_path)</span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>  obj <span class="ot">&lt;-</span> <span class="fu">CreateSeuratObject</span>(<span class="at">counts =</span> counts, <span class="at">project =</span> donor_id, <span class="at">min.cells =</span> <span class="dv">3</span>, <span class="at">min.features =</span> <span class="dv">200</span>)</span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>donor <span class="ot">&lt;-</span> donor_id</span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>sex <span class="ot">&lt;-</span> sex</span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>age_group <span class="ot">&lt;-</span> age_group</span>
-<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>  obj[[<span class="st">"percent.mt"</span>]] <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(obj, <span class="at">pattern =</span> <span class="st">"^MT-"</span>)</span>
-<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(obj)</span>
-<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor1.h5"</span>, <span class="st">"Donor1"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
-<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>d2 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor2.h5"</span>, <span class="st">"Donor2"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
-<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>d3 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor3.h5"</span>, <span class="st">"Donor3"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
-<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>d4 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor4.h5"</span>, <span class="st">"Donor4"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
-<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">merge</span>(d1, <span class="at">y =</span> <span class="fu">c</span>(d2, d3, d4), <span class="at">add.cell.ids =</span> <span class="fu">c</span>(<span class="st">"D1"</span>, <span class="st">"D2"</span>, <span class="st">"D3"</span>, <span class="st">"D4"</span>))</span>
-<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a><span class="co"># QC Filtering</span></span>
-<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc, <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> nFeature_RNA <span class="sc">&lt;</span> <span class="dv">4500</span> <span class="sc">&amp;</span> percent.mt <span class="sc">&lt;</span> <span class="dv">15</span>)</span>
-<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalization &amp; Dimensionality Reduction</span></span>
-<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(pbmc)</span>
-<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(pbmc, <span class="at">selection.method =</span> <span class="st">"vst"</span>, <span class="at">nfeatures =</span> <span class="dv">2000</span>)</span>
-<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc)</span>
-<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(pbmc, <span class="at">npcs =</span> <span class="dv">30</span>)</span>
-<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
-<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(pbmc, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
-<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc, <span class="at">resolution =</span> <span class="fl">0.4</span>)</span>
-<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="co"># Cell Type Annotation</span></span>
-<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>cluster_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>  <span class="st">"0"</span> <span class="ot">=</span> <span class="st">"CD4 T Cells"</span>, <span class="st">"1"</span> <span class="ot">=</span> <span class="st">"CD14+ Monocytes"</span>, <span class="st">"2"</span> <span class="ot">=</span> <span class="st">"CD8 T Cells"</span>,</span>
-<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a>  <span class="st">"3"</span> <span class="ot">=</span> <span class="st">"NK Cells"</span>, <span class="st">"4"</span> <span class="ot">=</span> <span class="st">"B Cells"</span>, <span class="st">"5"</span> <span class="ot">=</span> <span class="st">"CD14+ Monocytes"</span>,</span>
-<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>  <span class="st">"6"</span> <span class="ot">=</span> <span class="st">"FCGR3A+ Monocytes"</span>, <span class="st">"7"</span> <span class="ot">=</span> <span class="st">"Dendritic Cells"</span>, <span class="st">"8"</span> <span class="ot">=</span> <span class="st">"Platelets"</span></span>
-<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc, cluster_ids)</span>
-<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a>pbmc<span class="sc">$</span>cell_type <span class="ot">&lt;-</span> <span class="fu">Idents</span>(pbmc)</span>
-<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a><span class="fu"># Quality Control</span></span>
-<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a><span class="in">```{r qc-plot, fig.cap="Mitochondrial and gene count metrics per donor prior to cell filtering."}</span></span>
-<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(pbmc, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"nFeature_RNA"</span>, <span class="st">"nCount_RNA"</span>, <span class="st">"percent.mt"</span>), <span class="at">group.by =</span> <span class="st">"donor"</span>, <span class="at">ncol =</span> <span class="dv">3</span>)</span>
-<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a><span class="in">```{r cluster-renaming}</span></span>
-<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename unannotated clusters</span></span>
-<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc,</span>
-<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a>  <span class="st">'9'</span>  <span class="ot">=</span> <span class="st">"Plasmablasts"</span>,</span>
-<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a>  <span class="st">'11'</span> <span class="ot">=</span> <span class="st">"gamma-delta T cells"</span>,</span>
-<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a>  <span class="st">'10'</span> <span class="ot">=</span> <span class="st">"Doublets/Artifacts"</span>,</span>
-<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a>  <span class="st">'12'</span> <span class="ot">=</span> <span class="st">"Doublets/Artifacts"</span>,</span>
-<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a>  <span class="st">'13'</span> <span class="ot">=</span> <span class="st">"Platelet-T Doublets"</span>,</span>
-<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a>  <span class="st">'14'</span> <span class="ot">=</span> <span class="st">"Platelet-T Doublets"</span></span>
-<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter out identified doublets/artifacts</span></span>
-<span id="cb8-81"><a href="#cb8-81" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc_clean, <span class="at">idents =</span> <span class="fu">c</span>(<span class="st">"Doublets/Artifacts"</span>, <span class="st">"Platelet-T Doublets"</span>), <span class="at">invert =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb8-82"><a href="#cb8-82" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-83"><a href="#cb8-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-84"><a href="#cb8-84" aria-hidden="true" tabindex="-1"></a><span class="in">```{r umap-plot, fig.cap="UMAP projection of annotated PBMC populations."}</span></span>
-<span id="cb8-85"><a href="#cb8-85" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc_clean, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">label =</span> <span class="cn">TRUE</span>, <span class="at">repel =</span> <span class="cn">TRUE</span>) <span class="sc">+</span> </span>
-<span id="cb8-86"><a href="#cb8-86" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>)</span>
-<span id="cb8-87"><a href="#cb8-87" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-88"><a href="#cb8-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-89"><a href="#cb8-89" aria-hidden="true" tabindex="-1"></a><span class="fu"># Downstream Analysis &amp; Validation</span></span>
-<span id="cb8-90"><a href="#cb8-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-91"><a href="#cb8-91" aria-hidden="true" tabindex="-1"></a><span class="in">```{r downstream-analysis, fig.width=10, fig.height=6}</span></span>
-<span id="cb8-92"><a href="#cb8-92" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Plot cell type proportions across donors</span></span>
-<span id="cb8-93"><a href="#cb8-93" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(pbmc_clean<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> orig.ident, <span class="at">fill =</span> <span class="fu">Idents</span>(pbmc_clean))) <span class="sc">+</span></span>
-<span id="cb8-94"><a href="#cb8-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"fill"</span>) <span class="sc">+</span></span>
-<span id="cb8-95"><a href="#cb8-95" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb8-96"><a href="#cb8-96" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Donor"</span>, <span class="at">fill =</span> <span class="st">"Cell Type"</span>, <span class="at">title =</span> <span class="st">"Cell Composition"</span>) <span class="sc">+</span></span>
-<span id="cb8-97"><a href="#cb8-97" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span>
-<span id="cb8-98"><a href="#cb8-98" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-99"><a href="#cb8-99" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. DotPlot of canonical markers across cell types</span></span>
-<span id="cb8-100"><a href="#cb8-100" aria-hidden="true" tabindex="-1"></a>canonical_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD4"</span>, <span class="st">"CD8A"</span>, <span class="st">"TRDC"</span>, <span class="st">"NCAM1"</span>, <span class="st">"CD14"</span>, <span class="st">"FCGR3A"</span>, <span class="st">"MS4A1"</span>, <span class="st">"MZB1"</span>, <span class="st">"LYZ"</span>)</span>
-<span id="cb8-101"><a href="#cb8-101" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DotPlot</span>(pbmc_clean, <span class="at">features =</span> canonical_markers) <span class="sc">+</span> </span>
-<span id="cb8-102"><a href="#cb8-102" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span> </span>
-<span id="cb8-103"><a href="#cb8-103" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Lineage Marker Expression"</span>)</span>
-<span id="cb8-104"><a href="#cb8-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-105"><a href="#cb8-105" aria-hidden="true" tabindex="-1"></a><span class="co"># Display plots side-by-side</span></span>
-<span id="cb8-106"><a href="#cb8-106" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">+</span> p2</span>
-<span id="cb8-107"><a href="#cb8-107" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb8-108"><a href="#cb8-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-109"><a href="#cb8-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-110"><a href="#cb8-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-111"><a href="#cb8-111" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-112"><a href="#cb8-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-113"><a href="#cb8-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-114"><a href="#cb8-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-115"><a href="#cb8-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-116"><a href="#cb8-116" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-117"><a href="#cb8-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-118"><a href="#cb8-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-119"><a href="#cb8-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-120"><a href="#cb8-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-121"><a href="#cb8-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-122"><a href="#cb8-122" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-123"><a href="#cb8-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-124"><a href="#cb8-124" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Cell Types Beyond Lymphocytes: Multi-Sample scRNA-seq Analysis of Human PBMCs"</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Maria" </span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="co">  message: false</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup}</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(viridis)</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a><span class="in">```{r load-and-merge-data}</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper function to load datasets and attach donor metadata</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>load_donor <span class="ot">&lt;-</span> <span class="cf">function</span>(file_path, donor_id, sex, age_group) {</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>  counts <span class="ot">&lt;-</span> <span class="fu">Read10X_h5</span>(file_path)</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>  obj <span class="ot">&lt;-</span> <span class="fu">CreateSeuratObject</span>(<span class="at">counts =</span> counts, <span class="at">project =</span> donor_id, <span class="at">min.cells =</span> <span class="dv">3</span>, <span class="at">min.features =</span> <span class="dv">200</span>)</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>donor_id <span class="ot">&lt;-</span> donor_id</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>sex <span class="ot">&lt;-</span> sex</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>  obj<span class="sc">$</span>age_group <span class="ot">&lt;-</span> age_group</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>  obj[[<span class="st">"percent.mt"</span>]] <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(obj, <span class="at">pattern =</span> <span class="st">"^MT-"</span>)</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(obj)</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Load individual datasets</span></span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor1.h5"</span>, <span class="st">"Donor1"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>d2 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor2.h5"</span>, <span class="st">"Donor2"</span>, <span class="st">"Male"</span>, <span class="st">"18-35"</span>)</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>d3 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor3.h5"</span>, <span class="st">"Donor3"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>d4 <span class="ot">&lt;-</span> <span class="fu">load_donor</span>(<span class="st">"data/donor4.h5"</span>, <span class="st">"Donor4"</span>, <span class="st">"Female"</span>, <span class="st">"36-50"</span>)</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge into a single unified Seurat object at the beginning</span></span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>pbmc <span class="ot">&lt;-</span> <span class="fu">merge</span>(d1, <span class="at">y =</span> <span class="fu">c</span>(d2, d3, d4), <span class="at">add.cell.ids =</span> <span class="fu">c</span>(<span class="st">"D1"</span>, <span class="st">"D2"</span>, <span class="st">"D3"</span>, <span class="st">"D4"</span>))</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a><span class="fu">## Quality Control Diagnostics</span></span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a><span class="in">```{r qc-visualization, fig.width=11, fig.height=10, out.width="100%", fig.cap="Figure: Pre-filtering QC metrics across all merged donor samples."}</span></span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Visualize distributions of features, counts, and mitochondrial content</span></span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>vln_qc <span class="ot">&lt;-</span> <span class="fu">VlnPlot</span>(</span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>  pbmc, </span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"nFeature_RNA"</span>, <span class="st">"nCount_RNA"</span>, <span class="st">"percent.mt"</span>), </span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"donor_id"</span>,</span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">ncol =</span> <span class="dv">3</span>, </span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="fl">0.1</span></span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>) <span class="sc">&amp;</span> <span class="fu">scale_fill_viridis_d</span>(<span class="at">option =</span> <span class="st">"mako"</span>)</span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Scatter plot to evaluate doublet/technical artifact relationships</span></span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>scatter_qc <span class="ot">&lt;-</span> <span class="fu">FeatureScatter</span>(pbmc, <span class="at">feature1 =</span> <span class="st">"nCount_RNA"</span>, <span class="at">feature2 =</span> <span class="st">"nFeature_RNA"</span>, <span class="at">group.by =</span> <span class="st">"donor_id"</span>) <span class="sc">+</span></span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"RNA Counts vs. Unique Genes"</span>)</span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a><span class="co"># Display both plots stacked together</span></span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>vln_qc <span class="sc">/</span> scatter_qc</span>
+<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a>**Quality Control Parameter Interpretations**</span>
+<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**nFeature_RNA (Gene Count per Cell):** Counts the unique genes identified in a single cell. Cells with less than 500 genes are excluded as empty droplets or low-quality debris. Cells with more than 4,500 genes are excluded because they likely represent doublets.</span>
+<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**nCount_RNA (Total UMI Count):** Measures total sequencing depth per cell. High correlation with nFeature_RNA indicates standard library prep quality without abnormal sequencing artifacts.</span>
+<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**percent.mt (Mitochondrial RNA Percentage):** Indicates cell viability. Stressed or dying cells lose cytoplasmic RNA while retaining mitochondrial transcripts. A threshold of less than 15% removes dying cells without depleting metabolic immune cells.</span>
+<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a><span class="in">```{r qc-filtering}</span></span>
+<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a><span class="co"># Quality control filtering</span></span>
+<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">subset</span>(pbmc, <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> nFeature_RNA <span class="sc">&lt;</span> <span class="dv">4500</span> <span class="sc">&amp;</span> percent.mt <span class="sc">&lt;</span> <span class="dv">15</span>)</span>
+<span id="cb13-74"><a href="#cb13-74" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-75"><a href="#cb13-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-76"><a href="#cb13-76" aria-hidden="true" tabindex="-1"></a><span class="in">```{r normalization-and-dimred}</span></span>
+<span id="cb13-77"><a href="#cb13-77" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalization, variable feature selection, scaling, and PCA</span></span>
+<span id="cb13-78"><a href="#cb13-78" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(pbmc_clean)</span>
+<span id="cb13-79"><a href="#cb13-79" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(pbmc_clean, <span class="at">selection.method =</span> <span class="st">"vst"</span>, <span class="at">nfeatures =</span> <span class="dv">2000</span>)</span>
+<span id="cb13-80"><a href="#cb13-80" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(pbmc_clean)</span>
+<span id="cb13-81"><a href="#cb13-81" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(pbmc_clean, <span class="at">npcs =</span> <span class="dv">30</span>)</span>
+<span id="cb13-82"><a href="#cb13-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-83"><a href="#cb13-83" aria-hidden="true" tabindex="-1"></a><span class="co"># Graph-based clustering and UMAP embedding</span></span>
+<span id="cb13-84"><a href="#cb13-84" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(pbmc_clean, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
+<span id="cb13-85"><a href="#cb13-85" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(pbmc_clean, <span class="at">resolution =</span> <span class="fl">0.4</span>)</span>
+<span id="cb13-86"><a href="#cb13-86" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(pbmc_clean, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
+<span id="cb13-87"><a href="#cb13-87" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-88"><a href="#cb13-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-89"><a href="#cb13-89" aria-hidden="true" tabindex="-1"></a><span class="in">```{r cell-type-annotation}</span></span>
+<span id="cb13-90"><a href="#cb13-90" aria-hidden="true" tabindex="-1"></a><span class="co"># Complete mapping for all 15 clusters (0 through 14)</span></span>
+<span id="cb13-91"><a href="#cb13-91" aria-hidden="true" tabindex="-1"></a>new_cluster_ids <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb13-92"><a href="#cb13-92" aria-hidden="true" tabindex="-1"></a>  <span class="st">"0"</span>  <span class="ot">=</span> <span class="st">"CD4+ T cells"</span>,</span>
+<span id="cb13-93"><a href="#cb13-93" aria-hidden="true" tabindex="-1"></a>  <span class="st">"1"</span>  <span class="ot">=</span> <span class="st">"CD14+ Monocytes"</span>,</span>
+<span id="cb13-94"><a href="#cb13-94" aria-hidden="true" tabindex="-1"></a>  <span class="st">"2"</span>  <span class="ot">=</span> <span class="st">"CD8+ T cells"</span>,</span>
+<span id="cb13-95"><a href="#cb13-95" aria-hidden="true" tabindex="-1"></a>  <span class="st">"3"</span>  <span class="ot">=</span> <span class="st">"NK cells"</span>,</span>
+<span id="cb13-96"><a href="#cb13-96" aria-hidden="true" tabindex="-1"></a>  <span class="st">"4"</span>  <span class="ot">=</span> <span class="st">"B cells"</span>,</span>
+<span id="cb13-97"><a href="#cb13-97" aria-hidden="true" tabindex="-1"></a>  <span class="st">"5"</span>  <span class="ot">=</span> <span class="st">"FCGR3A+ Monocytes"</span>,</span>
+<span id="cb13-98"><a href="#cb13-98" aria-hidden="true" tabindex="-1"></a>  <span class="st">"6"</span>  <span class="ot">=</span> <span class="st">"Dendritic cells"</span>,</span>
+<span id="cb13-99"><a href="#cb13-99" aria-hidden="true" tabindex="-1"></a>  <span class="st">"7"</span>  <span class="ot">=</span> <span class="st">"Platelets"</span>,</span>
+<span id="cb13-100"><a href="#cb13-100" aria-hidden="true" tabindex="-1"></a>  <span class="st">"8"</span>  <span class="ot">=</span> <span class="st">"CD14+ Monocyte subset"</span>,</span>
+<span id="cb13-101"><a href="#cb13-101" aria-hidden="true" tabindex="-1"></a>  <span class="st">"9"</span>  <span class="ot">=</span> <span class="st">"Plasmacytoid DCs"</span>,</span>
+<span id="cb13-102"><a href="#cb13-102" aria-hidden="true" tabindex="-1"></a>  <span class="st">"10"</span> <span class="ot">=</span> <span class="st">"Plasma B cells"</span>,</span>
+<span id="cb13-103"><a href="#cb13-103" aria-hidden="true" tabindex="-1"></a>  <span class="st">"11"</span> <span class="ot">=</span> <span class="st">"NK T cells"</span>,</span>
+<span id="cb13-104"><a href="#cb13-104" aria-hidden="true" tabindex="-1"></a>  <span class="st">"12"</span> <span class="ot">=</span> <span class="st">"Naive CD8+ T cells"</span>,</span>
+<span id="cb13-105"><a href="#cb13-105" aria-hidden="true" tabindex="-1"></a>  <span class="st">"13"</span> <span class="ot">=</span> <span class="st">"Cytotoxic T subset"</span>,</span>
+<span id="cb13-106"><a href="#cb13-106" aria-hidden="true" tabindex="-1"></a>  <span class="st">"14"</span> <span class="ot">=</span> <span class="st">"Low-quality / Doublets"</span></span>
+<span id="cb13-107"><a href="#cb13-107" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-108"><a href="#cb13-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-109"><a href="#cb13-109" aria-hidden="true" tabindex="-1"></a>pbmc_clean <span class="ot">&lt;-</span> <span class="fu">RenameIdents</span>(pbmc_clean, new_cluster_ids)</span>
+<span id="cb13-110"><a href="#cb13-110" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>cell_type <span class="ot">&lt;-</span> <span class="fu">Idents</span>(pbmc_clean)</span>
+<span id="cb13-111"><a href="#cb13-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-112"><a href="#cb13-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-113"><a href="#cb13-113" aria-hidden="true" tabindex="-1"></a><span class="fu">## Dimensionality Reduction (UMAP)</span></span>
+<span id="cb13-114"><a href="#cb13-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-115"><a href="#cb13-115" aria-hidden="true" tabindex="-1"></a><span class="in">```{r umap-plot, fig.width=11, fig.height=8, out.width="100%", fig.cap="Figure 1: UMAP visualization of fully annotated PBMC clusters across all four donors."}</span></span>
+<span id="cb13-116"><a href="#cb13-116" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(pbmc_clean, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">label =</span> <span class="cn">TRUE</span>, <span class="at">repel =</span> <span class="cn">TRUE</span>, <span class="at">pt.size =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb13-117"><a href="#cb13-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>) <span class="sc">+</span></span>
+<span id="cb13-118"><a href="#cb13-118" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-119"><a href="#cb13-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Visualization of Annotated PBMC Populations"</span>, <span class="at">x =</span> <span class="st">"UMAP 1"</span>, <span class="at">y =</span> <span class="st">"UMAP 2"</span>)</span>
+<span id="cb13-120"><a href="#cb13-120" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-121"><a href="#cb13-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-122"><a href="#cb13-122" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 1</span></span>
+<span id="cb13-123"><a href="#cb13-123" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Dimensionality Reduction:** Non-linear 2D projection groups single cells based on transcriptome-wide similarity.</span>
+<span id="cb13-124"><a href="#cb13-124" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Lineage Clustering:** T lymphocytes (CD4+ and CD8+) and NK cells form a large continuous super-cluster on the lower axis. Myeloid lineages (CD14+ and FCGR3A+ Monocytes) form a distinct branch on the left, while B cells, Plasmacytoid DCs, and Platelets occupy isolated outer islands.</span>
+<span id="cb13-125"><a href="#cb13-125" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Quality Control:** Cluster 14 represents residual low-quality cells or doublets, isolated near the center-right margin.</span>
+<span id="cb13-126"><a href="#cb13-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-127"><a href="#cb13-127" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb13-128"><a href="#cb13-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-129"><a href="#cb13-129" aria-hidden="true" tabindex="-1"></a><span class="fu">## Donor Cell Composition</span></span>
+<span id="cb13-130"><a href="#cb13-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-131"><a href="#cb13-131" aria-hidden="true" tabindex="-1"></a><span class="in">```{r composition-plot, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 2: Relative proportion of each cell population across individual donors."}</span></span>
+<span id="cb13-132"><a href="#cb13-132" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(pbmc_clean<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> orig.ident, <span class="at">fill =</span> cell_type)) <span class="sc">+</span></span>
+<span id="cb13-133"><a href="#cb13-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"fill"</span>, <span class="at">width =</span> <span class="fl">0.65</span>) <span class="sc">+</span></span>
+<span id="cb13-134"><a href="#cb13-134" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_d</span>(<span class="at">option =</span> <span class="st">"turbo"</span>) <span class="sc">+</span></span>
+<span id="cb13-135"><a href="#cb13-135" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-136"><a href="#cb13-136" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Donor ID"</span>, <span class="at">fill =</span> <span class="st">"Cell Population"</span>, <span class="at">title =</span> <span class="st">"Immune Cell Type Composition Across Donors"</span>) <span class="sc">+</span></span>
+<span id="cb13-137"><a href="#cb13-137" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">0</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb13-138"><a href="#cb13-138" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"right"</span>)</span>
+<span id="cb13-139"><a href="#cb13-139" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-140"><a href="#cb13-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-141"><a href="#cb13-141" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 2</span></span>
+<span id="cb13-142"><a href="#cb13-142" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Proportional Breakdown:** T cells and CD14+ Monocytes consistently dominate PBMC composition (&gt;70% of total cells across all samples).</span>
+<span id="cb13-143"><a href="#cb13-143" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Donor Variance:** Younger male donors (Donor1, Donor2) exhibit slight differences in Monocyte-to-NK cell ratios compared to older female donors (Donor3, Donor4), underlining the importance of donor-level pseudobulk modeling over single-cell pseudoreplication.</span>
+<span id="cb13-144"><a href="#cb13-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-145"><a href="#cb13-145" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb13-146"><a href="#cb13-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-147"><a href="#cb13-147" aria-hidden="true" tabindex="-1"></a><span class="fu">## Lineage Marker Gene Validation</span></span>
+<span id="cb13-148"><a href="#cb13-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-149"><a href="#cb13-149" aria-hidden="true" tabindex="-1"></a><span class="in">```{r marker-expression-plot, fig.width=11, fig.height=7, out.width="100%", fig.cap="Figure 3: Canonical marker gene expression profile across annotated populations."}</span></span>
+<span id="cb13-150"><a href="#cb13-150" aria-hidden="true" tabindex="-1"></a>canonical_markers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CD3D"</span>, <span class="st">"CD4"</span>, <span class="st">"CD8A"</span>, <span class="st">"TRDC"</span>, <span class="st">"NCAM1"</span>, <span class="st">"CD14"</span>, <span class="st">"FCGR3A"</span>, <span class="st">"MS4A1"</span>, <span class="st">"MZB1"</span>, <span class="st">"LYZ"</span>)</span>
+<span id="cb13-151"><a href="#cb13-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-152"><a href="#cb13-152" aria-hidden="true" tabindex="-1"></a><span class="fu">DotPlot</span>(pbmc_clean, <span class="at">features =</span> canonical_markers) <span class="sc">+</span></span>
+<span id="cb13-153"><a href="#cb13-153" aria-hidden="true" tabindex="-1"></a>  <span class="fu">RotatedAxis</span>() <span class="sc">+</span></span>
+<span id="cb13-154"><a href="#cb13-154" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_viridis_c</span>(<span class="at">option =</span> <span class="st">"magma"</span>) <span class="sc">+</span></span>
+<span id="cb13-155"><a href="#cb13-155" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Canonical Lineage Marker Expression"</span>, <span class="at">x =</span> <span class="st">"Marker Gene"</span>, <span class="at">y =</span> <span class="st">"Annotated Cell Type"</span>) <span class="sc">+</span></span>
+<span id="cb13-156"><a href="#cb13-156" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-157"><a href="#cb13-157" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">face =</span> <span class="st">"bold"</span>))</span>
+<span id="cb13-158"><a href="#cb13-158" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb13-159"><a href="#cb13-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-160"><a href="#cb13-160" aria-hidden="true" tabindex="-1"></a><span class="fu">### Analysis &amp; Observations: Figure 3</span></span>
+<span id="cb13-161"><a href="#cb13-161" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>**Marker Fidelity:** Specific marker genes confirm accurate cluster identities:</span>
+<span id="cb13-162"><a href="#cb13-162" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*CD3D*, *CD4*, and *CD8A* uniquely distinguish T lymphocyte subpopulations.</span>
+<span id="cb13-163"><a href="#cb13-163" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*NCAM1* (CD56) highlights cytotoxic NK cell lineages.</span>
+<span id="cb13-164"><a href="#cb13-164" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*CD14*, *FCGR3A*, and *LYZ* explicitly delineate classical and non-classical Monocyte subsets.</span>
+<span id="cb13-165"><a href="#cb13-165" aria-hidden="true" tabindex="-1"></a><span class="ss">  * </span>*MS4A1* (CD20) and *MZB1* mark B cells and antibody-secreting Plasma cells, respectively.</span>
+<span id="cb13-166"><a href="#cb13-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-167"><a href="#cb13-167" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb13-168"><a href="#cb13-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-169"><a href="#cb13-169" aria-hidden="true" tabindex="-1"></a><span class="fu">## Exploratory Pseudobulk Analysis (Group-Associated Differences)</span></span>
+<span id="cb13-170"><a href="#cb13-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-171"><a href="#cb13-171" aria-hidden="true" tabindex="-1"></a><span class="in">```{r pseudobulk-exploratory-analysis}</span></span>
+<span id="cb13-172"><a href="#cb13-172" aria-hidden="true" tabindex="-1"></a><span class="co"># Aggregate raw counts to donor-celltype pseudobulk level (N=2 per group)</span></span>
+<span id="cb13-173"><a href="#cb13-173" aria-hidden="true" tabindex="-1"></a>pbmc_clean<span class="sc">$</span>donor_celltype <span class="ot">&lt;-</span> <span class="fu">paste</span>(pbmc_clean<span class="sc">$</span>donor_id, pbmc_clean<span class="sc">$</span>cell_type, <span class="at">sep =</span> <span class="st">"_"</span>)</span>
+<span id="cb13-174"><a href="#cb13-174" aria-hidden="true" tabindex="-1"></a>pb_counts <span class="ot">&lt;-</span> <span class="fu">AggregateExpression</span>(pbmc_clean, <span class="at">group.by =</span> <span class="st">"donor_celltype"</span>, <span class="at">slot =</span> <span class="st">"counts"</span>)<span class="sc">$</span>RNA</span>
+<span id="cb13-175"><a href="#cb13-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-176"><a href="#cb13-176" aria-hidden="true" tabindex="-1"></a><span class="co"># Canonical sex-chromosome genes</span></span>
+<span id="cb13-177"><a href="#cb13-177" aria-hidden="true" tabindex="-1"></a>sex_genes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"XIST"</span>, <span class="st">"TSIX"</span>, <span class="st">"RPS4Y1"</span>, <span class="st">"DDX3Y"</span>, <span class="st">"KDM5D"</span>, <span class="st">"UTY"</span>, <span class="st">"EIF1AY"</span>, <span class="st">"USP9Y"</span>)</span>
+<span id="cb13-178"><a href="#cb13-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-179"><a href="#cb13-179" aria-hidden="true" tabindex="-1"></a>cell_types <span class="ot">&lt;-</span> <span class="fu">unique</span>(pbmc_clean<span class="sc">$</span>cell_type)</span>
+<span id="cb13-180"><a href="#cb13-180" aria-hidden="true" tabindex="-1"></a>pseudobulk_results <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb13-181"><a href="#cb13-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-182"><a href="#cb13-182" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (ct <span class="cf">in</span> cell_types) {</span>
+<span id="cb13-183"><a href="#cb13-183" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Match column names using safe string matching</span></span>
+<span id="cb13-184"><a href="#cb13-184" aria-hidden="true" tabindex="-1"></a>  ct_cols <span class="ot">&lt;-</span> <span class="fu">colnames</span>(pb_counts)[<span class="fu">endsWith</span>(<span class="fu">colnames</span>(pb_counts), <span class="fu">paste0</span>(<span class="st">"_"</span>, ct))]</span>
+<span id="cb13-185"><a href="#cb13-185" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-186"><a href="#cb13-186" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(ct_cols) <span class="sc">==</span> <span class="dv">4</span>) {</span>
+<span id="cb13-187"><a href="#cb13-187" aria-hidden="true" tabindex="-1"></a>    sub_mat <span class="ot">&lt;-</span> pb_counts[, ct_cols]</span>
+<span id="cb13-188"><a href="#cb13-188" aria-hidden="true" tabindex="-1"></a>    males <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor1|Donor2"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb13-189"><a href="#cb13-189" aria-hidden="true" tabindex="-1"></a>    females <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"Donor3|Donor4"</span>, ct_cols, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb13-190"><a href="#cb13-190" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb13-191"><a href="#cb13-191" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate log2 fold-change (Male/Young vs Female/Old)</span></span>
+<span id="cb13-192"><a href="#cb13-192" aria-hidden="true" tabindex="-1"></a>    log2fc_all <span class="ot">&lt;-</span> <span class="fu">log2</span>(<span class="fu">rowMeans</span>(sub_mat[, males, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="fu">rowMeans</span>(sub_mat[, females, <span class="at">drop =</span> <span class="cn">FALSE</span>] <span class="sc">+</span> <span class="dv">1</span>))</span>
+<span id="cb13-193"><a href="#cb13-193" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb13-194"><a href="#cb13-194" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Isolate autosomal gene signal</span></span>
+<span id="cb13-195"><a href="#cb13-195" aria-hidden="true" tabindex="-1"></a>    autosomal_genes <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">rownames</span>(sub_mat), sex_genes)</span>
+<span id="cb13-196"><a href="#cb13-196" aria-hidden="true" tabindex="-1"></a>    log2fc_autosomal <span class="ot">&lt;-</span> log2fc_all[autosomal_genes]</span>
+<span id="cb13-197"><a href="#cb13-197" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb13-198"><a href="#cb13-198" aria-hidden="true" tabindex="-1"></a>    pseudobulk_results[[<span class="fu">as.character</span>(ct)]] <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb13-199"><a href="#cb13-199" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
+<span id="cb13-200"><a href="#cb13-200" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_all =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_all, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>),</span>
+<span id="cb13-201"><a href="#cb13-201" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_male_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">TRUE</span>), <span class="dv">5</span>),</span>
+<span id="cb13-202"><a href="#cb13-202" aria-hidden="true" tabindex="-1"></a>      <span class="at">top_female_up_autosomal =</span> <span class="fu">head</span>(<span class="fu">sort</span>(log2fc_autosomal, <span class="at">decreasing =</span> <span class="cn">FALSE</span>), <span class="dv">5</span>)</span>
+<span id="cb13-203"><a href="#cb13-203" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb13-204"><a href="#cb13-204" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb13-205"><a href="#cb13-205" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-206"><a href="#cb13-206" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
