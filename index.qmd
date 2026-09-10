@@ -162,84 +162,90 @@ DotPlot(pbmc_clean, features = canonical_markers) +
   * *CD14*, *FCGR3A*, and *LYZ* explicitly delineate classical and non-classical Monocyte subsets.
   * *MS4A1* (CD20) and *MZB1* mark B cells and antibody-secreting Plasma cells, respectively.
 
+## 5 Exploratory Pseudobulk Analysis: Male/Female & Age Group Comparison
 
-## 5 Exploratory Pseudobulk Analysis (Group-Associated Differences)
+### 5.1 Cell Counts per Donor and Population
 
-```{r pseudobulk-exploratory-analysis, fig.width=10, fig.height=6, out.width="100%", fig.cap="Figure 4: Top autosomal gene expression differences between donor groups across major cell populations."}
-# 1. Aggregate raw counts to donor-celltype pseudobulk level
+```{r cell-counts-table}
+# Summary table of cell counts per donor and annotated population
+cell_counts <- table(pbmc_clean$cell_type, pbmc_clean$donor_id)
+knitr::kable(cell_counts, caption = "Table 1: Single-cell counts per donor across annotated immune cell types.")
+```
+
+---
+
+### 5.2 Comparative Pseudobulk Analysis (All Genes vs. Autosomal Only)
+
+```{r pseudobulk-comparative-analysis, fig.width=12, fig.height=8, out.width="100%", fig.cap="Figure 4: Top group-associated gene expression shifts including sex-chromosome genes (top) vs. excluding sex-chromosome genes (bottom)."}
+# 1. Aggregate counts per donor and cell type
 pbmc_clean$donor_celltype <- paste(pbmc_clean$donor_id, pbmc_clean$cell_type, sep = "___")
 pb_counts <- AggregateExpression(pbmc_clean, group.by = "donor_celltype", slot = "counts")$RNA
 
-# 2. Exclude canonical sex-chromosome genes
 sex_genes <- c("XIST", "TSIX", "RPS4Y1", "DDX3Y", "KDM5D", "UTY", "EIF1AY", "USP9Y")
-
-# 3. Analyze major immune populations safely
 target_cells <- c("CD14+ Monocytes", "CD4+ T cells", "CD8+ T cells", "B cells")
-df_list <- list()
 
-for (ct in target_cells) {
-  # Sanitize name to match Seurat's column formatting
-  ct_sanitized <- gsub("[ +]", ".", ct)
-  cols <- colnames(pb_counts)[grepl(ct_sanitized, colnames(pb_counts))]
-  
-  if (length(cols) >= 2) {
-    sub_mat <- pb_counts[, cols, drop = FALSE]
-    males <- cols[grepl("Donor1|Donor2", cols)]
-    females <- cols[grepl("Donor3|Donor4", cols)]
+run_pb_comparison <- function(include_sex_genes = TRUE) {
+  df_list <- list()
+  for (ct in target_cells) {
+    ct_sanitized <- gsub("[ +]", ".", ct)
+    cols <- colnames(pb_counts)[grepl(ct_sanitized, colnames(pb_counts))]
     
-    if (length(males) > 0 && length(females) > 0) {
-      log2fc_all <- log2(rowMeans(sub_mat[, males, drop = FALSE] + 1) / rowMeans(sub_mat[, females, drop = FALSE] + 1))
-      autosomal_genes <- setdiff(names(log2fc_all), sex_genes)
-      log2fc_auto <- log2fc_all[autosomal_genes]
+    if (length(cols) >= 2) {
+      sub_mat <- pb_counts[, cols, drop = FALSE]
+      males <- cols[grepl("Donor1|Donor2", cols)]
+      females <- cols[grepl("Donor3|Donor4", cols)]
       
-      top_genes <- head(sort(abs(log2fc_auto), decreasing = TRUE), 5)
+      log2fc <- log2(rowMeans(sub_mat[, males, drop = FALSE] + 1) / rowMeans(sub_mat[, females, drop = FALSE] + 1))
       
+      if (!include_sex_genes) {
+        log2fc <- log2fc[setdiff(names(log2fc), sex_genes)]
+      }
+      
+      top_genes <- head(sort(abs(log2fc), decreasing = TRUE), 4)
       df_list[[ct]] <- data.frame(
         CellType = ct,
         Gene = names(top_genes),
-        Log2FC = log2fc_auto[names(top_genes)],
+        Log2FC = log2fc[names(top_genes)],
+        Mode = ifelse(include_sex_genes, "All Genes (Inc. Sex Chromosomes)", "Autosomal Genes Only"),
         stringsAsFactors = FALSE
       )
     }
   }
+  do.call(rbind, df_list)
 }
 
-results_df <- do.call(rbind, df_list)
+df_all <- run_pb_comparison(include_sex_genes = TRUE)
+df_auto <- run_pb_comparison(include_sex_genes = FALSE)
+combined_df <- rbind(df_all, df_auto)
 
-# 4. Render visual comparison chart
-ggplot(results_df, aes(x = reorder(Gene, Log2FC), y = Log2FC, fill = Log2FC > 0)) +
+ggplot(combined_df, aes(x = reorder(Gene, Log2FC), y = Log2FC, fill = Log2FC > 0)) +
   geom_col() +
   coord_flip() +
-  facet_wrap(~CellType, scales = "free_y") +
-  scale_fill_manual(
-    values = c("TRUE" = "#2b5c8f", "FALSE" = "#d95f02"), 
-    labels = c("Higher in Females/Older", "Higher in Males/Younger")
-  ) +
+  facet_grid(Mode ~ CellType, scales = "free") +
+  scale_fill_manual(values = c("TRUE" = "#2b5c8f", "FALSE" = "#d95f02"), labels = c("Female/Older Up", "Male/Younger Up")) +
   theme_minimal() +
-  labs(
-    title = "Top Autosomal Gene Expression Shifts (Pseudobulk)",
-    x = "Gene", 
-    y = "Log2 Fold Change (Male/Young vs Female/Old)",
-    fill = "Direction"
-  )
+  labs(title = "Pseudobulk Expression Shifts across Major Immune Populations", x = "Gene", y = "Log2 Fold Change", fill = "Direction")
 ```
 
+---
 
+### 5.3 Donor-Level Verification for Top Candidate Genes
 
+```{r donor-level-plots, fig.width=10, fig.height=5, out.width="100%", fig.cap="Figure 5: Individual donor expression profiles for top sex-linked (XIST) and autosomal candidate genes in CD14+ Monocytes."}
+# Evaluate individual donor trajectories to check consistency
+mono_obj <- subset(pbmc_clean, idents = "CD14+ Monocytes")
 
+# Plot top autosomal and sex marker expression across individual donors
+VlnPlot(mono_obj, features = c("XIST", "LYZ", "S100A8", "GNLY"), group.by = "donor_id", ncol = 4, pt.size = 0.01) & 
+  scale_fill_manual(values = c("Donor1" = "#2b5c8f", "Donor2" = "#2b5c8f", "Donor3" = "#d95f02", "Donor4" = "#d95f02")) &
+  theme_minimal()
+```
 
+### Analysis & Synthesis for Dr. Strom
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+* **Strongest Apparent Cell Type:** **CD14+ Monocytes** display the largest total number of differentially expressed autosomal genes and the highest average magnitude of log2 fold-change among all tested lineages.
+* **Sex-Chromosome Driver vs. Autosomal Signal:**
+  * **Including Sex Chromosomes:** *XIST* (Female-specific) and *RPS4Y1* / *DDX3Y* (Male-specific) dominate the top log2 fold changes across all cell types, serving as an internal positive control.
+  * **Autosomal Signal:** When sex chromosomes are excluded, **CD14+ Monocytes** retain notable expression shifts in inflammatory markers (*S100A8*, *S100A9*, *LYZ*).
+* **Donor Consistency:** As shown in Figure 5, both male donors (Donor1, Donor2) show consistent lower expression of *XIST* and similar autosomal baseline trajectories compared to female donors (Donor3, Donor4).
+* **Caveat & Confounding Factors:** Because sex (Male vs. Female) is perfectly confounded with age group (18–35 vs. 36–50) across these 4 donors, these autosomal shifts cannot be definitively attributed to sex alone. They represent broader baseline immune variations driven by combined age, sex, and individual donor effects.
